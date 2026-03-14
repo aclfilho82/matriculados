@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestão de Matriculados · Upload + Filtros + Gráficos</title>
-    <!-- SheetJS (XLSX) para ler planilhas -->
+    <title>Gestão de Matriculados · Filtros + Gráficos com Percentuais</title>
+    <!-- SheetJS (XLSX) -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
-    <!-- Chart.js para gráficos -->
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         * {
@@ -31,7 +31,6 @@
         h1 {
             margin-top: 0;
             color: #2c3e50;
-            font-weight: 600;
             border-left: 6px solid #27ae60;
             padding-left: 16px;
         }
@@ -54,7 +53,6 @@
             font-weight: 600;
             cursor: pointer;
             transition: 0.2s;
-            display: inline-block;
         }
         .upload-label:hover {
             background: #2980b9;
@@ -75,7 +73,7 @@
             transition: opacity 0.3s;
         }
         .filter-group {
-            flex: 1 1 160px;
+            flex: 1 1 150px;
             min-width: 140px;
         }
         .filter-group label {
@@ -85,7 +83,6 @@
             color: #2c3e50;
             margin-bottom: 4px;
             text-transform: uppercase;
-            letter-spacing: 0.3px;
         }
         .filter-group select, .filter-group input {
             width: 100%;
@@ -93,7 +90,6 @@
             border: 2px solid #bdc3c7;
             border-radius: 8px;
             font-size: 0.9rem;
-            transition: 0.2s;
             background: white;
         }
         .filter-group select:focus, .filter-group input:focus {
@@ -109,9 +105,7 @@
             font-weight: 600;
             cursor: pointer;
             align-self: flex-end;
-            transition: 0.2s;
             height: 38px;
-            font-size: 0.9rem;
         }
         .clear-btn:hover {
             background: #c0392b;
@@ -166,7 +160,7 @@
             width: 100%;
             border-collapse: collapse;
             font-size: 0.85rem;
-            min-width: 1000px;
+            min-width: 1100px;
         }
         th {
             background: #2c3e50;
@@ -174,7 +168,6 @@
             padding: 12px 6px;
             font-weight: 500;
             text-align: left;
-            white-space: nowrap;
         }
         td {
             padding: 10px 6px;
@@ -206,17 +199,16 @@
 </head>
 <body>
 <div class="container">
-    <h1>📊 Gestão de Matriculados · Upload + Filtros + Gráficos</h1>
+    <h1>📊 Gestão de Matriculados · Filtros Avançados + Percentuais</h1>
 
-    <!-- Área de upload -->
     <div class="upload-area">
-        <label for="file-upload" class="upload-label">📂 Selecionar arquivo Excel</label>
+        <label for="file-upload" class="upload-label">📂 Selecionar Excel</label>
         <input type="file" id="file-upload" accept=".xlsx, .xls, .csv" style="display: none;">
         <span id="file-info">Nenhum arquivo carregado</span>
         <button id="reset-dados" class="clear-btn" style="background:#95a5a6;">Remover dados</button>
     </div>
 
-    <!-- Filtros (desabilitados enquanto não há dados) -->
+    <!-- Filtros (inicialmente desabilitados) -->
     <div class="filters" id="filters-container" style="opacity:0.6; pointer-events:none;">
         <div class="filter-group">
             <label>🔍 Nome</label>
@@ -229,6 +221,10 @@
         <div class="filter-group">
             <label>📍 Bairro</label>
             <select id="filtroBairro" disabled><option value="">Todos</option></select>
+        </div>
+        <div class="filter-group">
+            <label>📚 Curso</label>
+            <select id="filtroCurso" disabled><option value="">Todos</option></select>
         </div>
         <div class="filter-group">
             <label>📌 Modalidade</label>
@@ -249,23 +245,22 @@
         <button class="clear-btn" id="limparFiltros" disabled>Limpar filtros</button>
     </div>
 
-    <!-- Estatísticas e contador -->
     <div class="stats">
         <span class="counter" id="contador">0 registros exibidos</span>
     </div>
 
-    <!-- Gráficos dinâmicos -->
+    <!-- Gráficos dinâmicos (inicialmente ocultos) -->
     <div class="charts-row" id="chartsRow" style="display: none;">
         <div class="chart-card">
-            <h3>📊 Distribuição por Cidade</h3>
+            <h3>🏙️ Distribuição por Cidade</h3>
             <canvas id="chartCidade"></canvas>
         </div>
         <div class="chart-card">
-            <h3>📊 Distribuição por Modalidade</h3>
+            <h3>📌 Distribuição por Modalidade</h3>
             <canvas id="chartModalidade"></canvas>
         </div>
         <div class="chart-card">
-            <h3>📊 Distribuição por Turno</h3>
+            <h3>🌞 Distribuição por Turno</h3>
             <canvas id="chartTurno"></canvas>
         </div>
     </div>
@@ -294,13 +289,14 @@
 
 <script>
 (function() {
-    // ---------- Elementos DOM ----------
+    // Elementos DOM
     const fileInput = document.getElementById('file-upload');
     const fileInfo = document.getElementById('file-info');
     const resetBtn = document.getElementById('reset-dados');
     const filtroNome = document.getElementById('filtroNome');
     const filtroCidade = document.getElementById('filtroCidade');
     const filtroBairro = document.getElementById('filtroBairro');
+    const filtroCurso = document.getElementById('filtroCurso');
     const filtroModalidade = document.getElementById('filtroModalidade');
     const filtroClassificacao = document.getElementById('filtroClassificacao');
     const filtroTurno = document.getElementById('filtroTurno');
@@ -310,78 +306,60 @@
     const filtersContainer = document.getElementById('filters-container');
     const chartsRow = document.getElementById('chartsRow');
 
-    // Gráficos (Chart.js)
+    // Gráficos
     let chartCidade, chartModalidade, chartTurno;
 
-    // Estado dos dados
+    // Dados carregados
     let dados = [];
 
-    // Armazenar bairros por cidade para atualização dinâmica
-    let bairrosPorCidade = {};
-
-    // ---------- Funções auxiliares ----------
+    // ----- Utilitários -----
     function desabilitarFiltros(desabilitar = true) {
-        const elementos = [filtroNome, filtroCidade, filtroBairro, filtroModalidade, filtroClassificacao, filtroTurno, limparFiltrosBtn];
+        const elementos = [filtroNome, filtroCidade, filtroBairro, filtroCurso, filtroModalidade, filtroClassificacao, filtroTurno, limparFiltrosBtn];
         elementos.forEach(el => el.disabled = desabilitar);
         filtersContainer.style.opacity = desabilitar ? '0.6' : '1';
         filtersContainer.style.pointerEvents = desabilitar ? 'none' : 'auto';
     }
 
-    // Atualiza todos os selects com valores únicos dos dados atuais (exceto bairro, que será tratado separadamente)
+    // Preenche todos os selects (exceto bairro, que será preenchido conforme cidade)
     function popularFiltros() {
         // Cidade
-        const cidades = [...new Set(dados.map(d => d.cidade).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+        const cidades = [...new Set(dados.map(d => d.cidade).filter(Boolean))].sort();
         filtroCidade.innerHTML = '<option value="">Todas</option>';
         cidades.forEach(v => filtroCidade.appendChild(new Option(v, v)));
 
+        // Curso
+        const cursos = [...new Set(dados.map(d => d.curso).filter(Boolean))].sort();
+        filtroCurso.innerHTML = '<option value="">Todos</option>';
+        cursos.forEach(v => filtroCurso.appendChild(new Option(v, v)));
+
         // Modalidade
-        const modalidades = [...new Set(dados.map(d => d.modalidade).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+        const modalidades = [...new Set(dados.map(d => d.modalidade).filter(Boolean))].sort();
         filtroModalidade.innerHTML = '<option value="">Todas</option>';
         modalidades.forEach(v => filtroModalidade.appendChild(new Option(v, v)));
 
         // Classificação
-        const classificacoes = [...new Set(dados.map(d => d.classificacao).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+        const classificacoes = [...new Set(dados.map(d => d.classificacao).filter(Boolean))].sort();
         filtroClassificacao.innerHTML = '<option value="">Todas</option>';
         classificacoes.forEach(v => filtroClassificacao.appendChild(new Option(v, v)));
 
-        // Turno já é fixo
-
-        // Construir mapa de bairros por cidade
-        bairrosPorCidade = {};
-        dados.forEach(item => {
-            if (item.cidade && item.bairro) {
-                if (!bairrosPorCidade[item.cidade]) {
-                    bairrosPorCidade[item.cidade] = new Set();
-                }
-                bairrosPorCidade[item.cidade].add(item.bairro);
-            }
-        });
-        // Converter Sets para arrays ordenados
-        for (let cidade in bairrosPorCidade) {
-            bairrosPorCidade[cidade] = Array.from(bairrosPorCidade[cidade]).sort((a,b) => a.localeCompare(b));
-        }
-
-        // Inicialmente, mostrar todos os bairros (sem filtro de cidade)
-        atualizarBairros();
+        // Turno já é fixo, mas mantemos
     }
 
-    // Atualiza o select de bairros com base na cidade selecionada
-    function atualizarBairros() {
-        const cidadeSelecionada = filtroCidade.value;
-        filtroBairro.innerHTML = '<option value="">Todos</option>';
-
+    // Preenche bairros de acordo com a cidade selecionada (e opcionalmente um valor padrão)
+    function popularBairrosPorCidade(cidadeSelecionada) {
         let bairros = [];
-        if (cidadeSelecionada && bairrosPorCidade[cidadeSelecionada]) {
-            bairros = bairrosPorCidade[cidadeSelecionada];
-        } else if (!cidadeSelecionada) {
-            // Se nenhuma cidade selecionada, mostrar todos os bairros (únicos)
-            const todosBairros = new Set();
-            dados.forEach(d => { if (d.bairro) todosBairros.add(d.bairro); });
-            bairros = Array.from(todosBairros).sort((a,b) => a.localeCompare(b));
+        if (cidadeSelecionada) {
+            // Filtra os bairros únicos da cidade selecionada
+            bairros = [...new Set(dados.filter(d => d.cidade === cidadeSelecionada).map(d => d.bairro).filter(Boolean))].sort();
+        } else {
+            // Se "Todas", mostra todos os bairros únicos de todas as cidades
+            bairros = [...new Set(dados.map(d => d.bairro).filter(Boolean))].sort();
         }
-        bairros.forEach(b => filtroBairro.appendChild(new Option(b, b)));
+        filtroBairro.innerHTML = '<option value="">Todos</option>';
+        bairros.forEach(v => filtroBairro.appendChild(new Option(v, v)));
     }
 
+    // Classe para badge de modalidade
     function classeModalidade(mod) {
         if (!mod) return '';
         const m = mod.toLowerCase();
@@ -392,28 +370,34 @@
         return '';
     }
 
-    // Renderiza tabela com base nos filtros atuais
-    function renderizarTabela() {
+    // Aplica os filtros e retorna os dados filtrados
+    function getDadosFiltrados() {
         const nomeFiltro = filtroNome.value.toLowerCase().trim();
         const cidadeFiltro = filtroCidade.value;
         const bairroFiltro = filtroBairro.value;
+        const cursoFiltro = filtroCurso.value;
         const modalidadeFiltro = filtroModalidade.value;
         const classificacaoFiltro = filtroClassificacao.value;
         const turnoFiltro = filtroTurno.value;
 
-        const dadosFiltrados = dados.filter(item => {
+        return dados.filter(item => {
             if (nomeFiltro && !(item.nome && item.nome.toLowerCase().includes(nomeFiltro))) return false;
             if (cidadeFiltro && item.cidade !== cidadeFiltro) return false;
             if (bairroFiltro && item.bairro !== bairroFiltro) return false;
+            if (cursoFiltro && item.curso !== cursoFiltro) return false;
             if (modalidadeFiltro && item.modalidade !== modalidadeFiltro) return false;
             if (classificacaoFiltro && item.classificacao !== classificacaoFiltro) return false;
             if (turnoFiltro && item.turno !== turnoFiltro) return false;
             return true;
         });
+    }
 
+    // Renderiza tabela e gráficos
+    function renderizarTabela() {
+        const dadosFiltrados = getDadosFiltrados();
         contadorSpan.textContent = `${dadosFiltrados.length} registro(s) exibido(s)`;
 
-        // Atualiza tabela
+        // Tabela
         tbody.innerHTML = '';
         if (dadosFiltrados.length === 0) {
             tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:32px;">Nenhum aluno encontrado com os filtros aplicados.</td></tr>`;
@@ -435,19 +419,28 @@
             });
         }
 
-        // Atualiza gráficos com os dados filtrados
+        // Atualiza gráficos (com tooltips mostrando percentuais)
         atualizarGraficos(dadosFiltrados);
     }
 
-    // Atualiza os gráficos (Chart.js)
+    // Função para gerar tooltips com percentuais
+    function percentualTooltip(context, total) {
+        const label = context.label || '';
+        const value = context.raw || 0;
+        const percent = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
+        return `${label}: ${value} (${percent}%)`;
+    }
+
+    // Atualiza os gráficos
     function atualizarGraficos(dadosFiltrados) {
         if (dadosFiltrados.length === 0) {
             chartsRow.style.display = 'none';
             return;
         }
         chartsRow.style.display = 'flex';
+        const total = dadosFiltrados.length;
 
-        // Gráfico de Cidade (top 8 para não poluir)
+        // Gráfico de Cidade (barras) - limitar a 8 maiores para legibilidade
         const cidadesCount = {};
         dadosFiltrados.forEach(d => { if (d.cidade) cidadesCount[d.cidade] = (cidadesCount[d.cidade] || 0) + 1; });
         const sortedCidades = Object.entries(cidadesCount).sort((a,b) => b[1] - a[1]).slice(0,8);
@@ -466,10 +459,21 @@
                     borderRadius: 6
                 }]
             },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => percentualTooltip(ctx, total)
+                        }
+                    },
+                    legend: { display: false }
+                }
+            }
         });
 
-        // Gráfico de Modalidade
+        // Gráfico de Modalidade (doughnut)
         const modalCount = {};
         dadosFiltrados.forEach(d => { if (d.modalidade) modalCount[d.modalidade] = (modalCount[d.modalidade] || 0) + 1; });
         if (chartModalidade) chartModalidade.destroy();
@@ -479,13 +483,23 @@
                 labels: Object.keys(modalCount),
                 datasets: [{
                     data: Object.values(modalCount),
-                    backgroundColor: ['#3498db', '#f1c40f', '#9b59b6', '#e67e22', '#1abc9c']
+                    backgroundColor: ['#3498db', '#f1c40f', '#9b59b6', '#e67e22', '#1abc9c', '#2ecc71']
                 }]
             },
-            options: { responsive: true, maintainAspectRatio: false }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => percentualTooltip(ctx, total)
+                        }
+                    }
+                }
+            }
         });
 
-        // Gráfico de Turno
+        // Gráfico de Turno (pie)
         const turnoCount = {};
         dadosFiltrados.forEach(d => { if (d.turno) turnoCount[d.turno] = (turnoCount[d.turno] || 0) + 1; });
         if (chartTurno) chartTurno.destroy();
@@ -498,28 +512,39 @@
                     backgroundColor: ['#2ecc71', '#e74c3c']
                 }]
             },
-            options: { responsive: true, maintainAspectRatio: false }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => percentualTooltip(ctx, total)
+                        }
+                    }
+                }
+            }
         });
     }
 
-    // Limpa os campos de filtro
+    // Reseta todos os filtros para valor padrão
     function resetFiltros() {
         filtroNome.value = '';
         filtroCidade.value = '';
-        filtroBairro.innerHTML = '<option value="">Todos</option>'; // limpa e recria depois
+        // Ao resetar cidade, precisamos repopular bairros com todos
+        popularBairrosPorCidade('');
+        filtroCurso.value = '';
         filtroModalidade.value = '';
         filtroClassificacao.value = '';
         filtroTurno.value = '';
-        // Ao resetar cidade, precisamos atualizar bairros para todos
-        atualizarBairros();
     }
 
-    // Carrega novos dados e atualiza interface
+    // Carrega novos dados
     function setDados(novosDados) {
-        dados = novosDados.filter(item => item.nome || item.celular); // remove linhas vazias
+        dados = novosDados.filter(item => item.nome || item.celular);
         if (dados.length > 0) {
             popularFiltros();
-            resetFiltros(); // Isso já chama atualizarBairros internamente
+            popularBairrosPorCidade(''); // inicialmente todos os bairros
+            resetFiltros();               // limpa seleções
             renderizarTabela();
             desabilitarFiltros(false);
             fileInfo.textContent = `${dados.length} registros carregados`;
@@ -533,16 +558,15 @@
         }
     }
 
-    // Processa o arquivo Excel com SheetJS
+    // Processa arquivo Excel
     function processarArquivo(arquivo) {
         const reader = new FileReader();
         reader.onload = (e) => {
             try {
                 const data = new Uint8Array(e.target.result);
                 const workbook = XLSX.read(data, { type: 'array' });
-                const firstSheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[firstSheetName];
-                const linhas = XLSX.utils.sheet_to_json(worksheet, { header: 0 });
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const linhas = XLSX.utils.sheet_to_json(firstSheet, { header: 0 });
 
                 const dadosImportados = linhas.map(linha => ({
                     nome: linha['Nome'] || linha['nome'] || '',
@@ -557,20 +581,20 @@
 
                 setDados(dadosImportados);
             } catch (error) {
-                alert('Erro ao processar o arquivo: ' + error.message);
+                alert('Erro ao processar: ' + error.message);
                 setDados([]);
             }
         };
         reader.readAsArrayBuffer(arquivo);
     }
 
-    // ---------- Event listeners ----------
+    // ----- Event listeners -----
     fileInput.addEventListener('change', (e) => {
         const arquivo = e.target.files[0];
         if (!arquivo) return;
         fileInfo.textContent = `Carregando: ${arquivo.name} ...`;
         processarArquivo(arquivo);
-        fileInput.value = ''; // permite recarregar o mesmo arquivo
+        fileInput.value = '';
     });
 
     resetBtn.addEventListener('click', () => {
@@ -582,13 +606,20 @@
         chartsRow.style.display = 'none';
     });
 
-    // Filtros
-    filtroNome.addEventListener('input', renderizarTabela);
+    // Quando a cidade mudar, atualiza os bairros
     filtroCidade.addEventListener('change', () => {
-        atualizarBairros();   // atualiza bairros conforme cidade
-        renderizarTabela();   // reaplica filtros
+        popularBairrosPorCidade(filtroCidade.value);
+        // Após popular, se o bairro selecionado anteriormente não estiver na nova lista, reseta
+        if (filtroBairro.value && !Array.from(filtroBairro.options).some(opt => opt.value === filtroBairro.value)) {
+            filtroBairro.value = '';
+        }
+        renderizarTabela(); // reaplica filtros com a nova cidade
     });
+
+    // Demais filtros
+    filtroNome.addEventListener('input', renderizarTabela);
     filtroBairro.addEventListener('change', renderizarTabela);
+    filtroCurso.addEventListener('change', renderizarTabela);
     filtroModalidade.addEventListener('change', renderizarTabela);
     filtroClassificacao.addEventListener('change', renderizarTabela);
     filtroTurno.addEventListener('change', renderizarTabela);
@@ -597,7 +628,7 @@
         renderizarTabela();
     });
 
-    // Inicialmente sem dados
+    // Inicialização
     desabilitarFiltros(true);
     chartsRow.style.display = 'none';
 })();
