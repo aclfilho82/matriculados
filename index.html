@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestão de Matriculados · Filtros + Gráficos com Percentuais</title>
+    <title>Gestão de Matriculados · Gráficos em Destaque</title>
     <!-- SheetJS (XLSX) -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
     <!-- Chart.js -->
@@ -126,20 +126,21 @@
             font-weight: 600;
             font-size: 0.9rem;
         }
-        .charts-row {
-            display: flex;
-            flex-wrap: wrap;
+        /* Grid para gráficos: 2 por linha */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
             gap: 20px;
             margin-bottom: 30px;
-            justify-content: center;
         }
         .chart-card {
-            flex: 1 1 300px;
             background: #f9f9fc;
             border-radius: 12px;
             padding: 16px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.05);
             border: 1px solid #dde4ec;
+            display: flex;
+            flex-direction: column;
         }
         .chart-card h3 {
             margin: 0 0 12px 0;
@@ -148,8 +149,9 @@
             text-align: center;
         }
         canvas {
-            max-height: 250px;
-            max-width: 100%;
+            max-height: 280px;
+            width: 100% !important;
+            height: auto !important;
         }
         .table-wrapper {
             overflow-x: auto;
@@ -195,11 +197,16 @@
             color: #7f8c8d;
             font-style: italic;
         }
+        @media (max-width: 800px) {
+            .charts-grid {
+                grid-template-columns: 1fr; /* 1 coluna em mobile */
+            }
+        }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>📊 Gestão de Matriculados · Filtros Avançados + Percentuais</h1>
+    <h1>📊 Gestão de Matriculados · Gráficos Ampliados</h1>
 
     <div class="upload-area">
         <label for="file-upload" class="upload-label">📂 Selecionar Excel</label>
@@ -249,11 +256,15 @@
         <span class="counter" id="contador">0 registros exibidos</span>
     </div>
 
-    <!-- Gráficos dinâmicos (inicialmente ocultos) -->
-    <div class="charts-row" id="chartsRow" style="display: none;">
+    <!-- Gráficos em grid 2x2 -->
+    <div class="charts-grid" id="chartsGrid" style="display: none;">
         <div class="chart-card">
-            <h3>🏙️ Distribuição por Cidade</h3>
+            <h3>🏙️ Distribuição por Cidade (top 10)</h3>
             <canvas id="chartCidade"></canvas>
+        </div>
+        <div class="chart-card">
+            <h3>📚 Distribuição por Curso</h3>
+            <canvas id="chartCurso"></canvas>
         </div>
         <div class="chart-card">
             <h3>📌 Distribuição por Modalidade</h3>
@@ -304,10 +315,10 @@
     const contadorSpan = document.getElementById('contador');
     const tbody = document.getElementById('corpoTabela');
     const filtersContainer = document.getElementById('filters-container');
-    const chartsRow = document.getElementById('chartsRow');
+    const chartsGrid = document.getElementById('chartsGrid');
 
     // Gráficos
-    let chartCidade, chartModalidade, chartTurno;
+    let chartCidade, chartCurso, chartModalidade, chartTurno;
 
     // Dados carregados
     let dados = [];
@@ -320,7 +331,7 @@
         filtersContainer.style.pointerEvents = desabilitar ? 'none' : 'auto';
     }
 
-    // Preenche todos os selects (exceto bairro, que será preenchido conforme cidade)
+    // Preenche todos os selects (exceto bairro)
     function popularFiltros() {
         // Cidade
         const cidades = [...new Set(dados.map(d => d.cidade).filter(Boolean))].sort();
@@ -341,18 +352,14 @@
         const classificacoes = [...new Set(dados.map(d => d.classificacao).filter(Boolean))].sort();
         filtroClassificacao.innerHTML = '<option value="">Todas</option>';
         classificacoes.forEach(v => filtroClassificacao.appendChild(new Option(v, v)));
-
-        // Turno já é fixo, mas mantemos
     }
 
-    // Preenche bairros de acordo com a cidade selecionada (e opcionalmente um valor padrão)
+    // Preenche bairros conforme cidade selecionada
     function popularBairrosPorCidade(cidadeSelecionada) {
         let bairros = [];
         if (cidadeSelecionada) {
-            // Filtra os bairros únicos da cidade selecionada
             bairros = [...new Set(dados.filter(d => d.cidade === cidadeSelecionada).map(d => d.bairro).filter(Boolean))].sort();
         } else {
-            // Se "Todas", mostra todos os bairros únicos de todas as cidades
             bairros = [...new Set(dados.map(d => d.bairro).filter(Boolean))].sort();
         }
         filtroBairro.innerHTML = '<option value="">Todos</option>';
@@ -370,7 +377,7 @@
         return '';
     }
 
-    // Aplica os filtros e retorna os dados filtrados
+    // Retorna dados filtrados
     function getDadosFiltrados() {
         const nomeFiltro = filtroNome.value.toLowerCase().trim();
         const cidadeFiltro = filtroCidade.value;
@@ -392,7 +399,15 @@
         });
     }
 
-    // Renderiza tabela e gráficos
+    // Tooltip com percentual
+    function percentualTooltip(context, total) {
+        const label = context.label || '';
+        const value = context.raw || 0;
+        const percent = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
+        return `${label}: ${value} (${percent}%)`;
+    }
+
+    // Atualiza tabela e gráficos
     function renderizarTabela() {
         const dadosFiltrados = getDadosFiltrados();
         contadorSpan.textContent = `${dadosFiltrados.length} registro(s) exibido(s)`;
@@ -419,57 +434,58 @@
             });
         }
 
-        // Atualiza gráficos (com tooltips mostrando percentuais)
+        // Gráficos
         atualizarGraficos(dadosFiltrados);
     }
 
-    // Função para gerar tooltips com percentuais
-    function percentualTooltip(context, total) {
-        const label = context.label || '';
-        const value = context.raw || 0;
-        const percent = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
-        return `${label}: ${value} (${percent}%)`;
-    }
-
-    // Atualiza os gráficos
     function atualizarGraficos(dadosFiltrados) {
         if (dadosFiltrados.length === 0) {
-            chartsRow.style.display = 'none';
+            chartsGrid.style.display = 'none';
             return;
         }
-        chartsRow.style.display = 'flex';
+        chartsGrid.style.display = 'grid';
         const total = dadosFiltrados.length;
 
-        // Gráfico de Cidade (barras) - limitar a 8 maiores para legibilidade
+        // Gráfico de Cidade (barras) - top 10
         const cidadesCount = {};
         dadosFiltrados.forEach(d => { if (d.cidade) cidadesCount[d.cidade] = (cidadesCount[d.cidade] || 0) + 1; });
-        const sortedCidades = Object.entries(cidadesCount).sort((a,b) => b[1] - a[1]).slice(0,8);
+        const sortedCidades = Object.entries(cidadesCount).sort((a,b) => b[1] - a[1]).slice(0,10);
         const labelsCidades = sortedCidades.map(item => item[0]);
         const dataCidades = sortedCidades.map(item => item[1]);
-
         if (chartCidade) chartCidade.destroy();
         chartCidade = new Chart(document.getElementById('chartCidade'), {
             type: 'bar',
-            data: {
-                labels: labelsCidades,
-                datasets: [{
-                    label: 'Quantidade',
-                    data: dataCidades,
-                    backgroundColor: '#3498db',
-                    borderRadius: 6
-                }]
-            },
+            data: { labels: labelsCidades, datasets: [{ data: dataCidades, backgroundColor: '#3498db', borderRadius: 6 }] },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    tooltip: {
-                        callbacks: {
-                            label: (ctx) => percentualTooltip(ctx, total)
-                        }
-                    },
+                    tooltip: { callbacks: { label: (ctx) => percentualTooltip(ctx, total) } },
                     legend: { display: false }
-                }
+                },
+                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+            }
+        });
+
+        // Gráfico de Curso (barras) - TODOS os cursos (sem slice)
+        const cursoCount = {};
+        dadosFiltrados.forEach(d => { if (d.curso) cursoCount[d.curso] = (cursoCount[d.curso] || 0) + 1; });
+        // Ordenar por quantidade (decrescente) para melhor visualização
+        const sortedCursos = Object.entries(cursoCount).sort((a,b) => b[1] - a[1]);
+        const labelsCursos = sortedCursos.map(item => item[0]);
+        const dataCursos = sortedCursos.map(item => item[1]);
+        if (chartCurso) chartCurso.destroy();
+        chartCurso = new Chart(document.getElementById('chartCurso'), {
+            type: 'bar',
+            data: { labels: labelsCursos, datasets: [{ data: dataCursos, backgroundColor: '#2ecc71', borderRadius: 6 }] },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: { callbacks: { label: (ctx) => percentualTooltip(ctx, total) } },
+                    legend: { display: false }
+                },
+                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
             }
         });
 
@@ -481,22 +497,9 @@
             type: 'doughnut',
             data: {
                 labels: Object.keys(modalCount),
-                datasets: [{
-                    data: Object.values(modalCount),
-                    backgroundColor: ['#3498db', '#f1c40f', '#9b59b6', '#e67e22', '#1abc9c', '#2ecc71']
-                }]
+                datasets: [{ data: Object.values(modalCount), backgroundColor: ['#3498db', '#f1c40f', '#9b59b6', '#e67e22', '#1abc9c', '#2ecc71'] }]
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    tooltip: {
-                        callbacks: {
-                            label: (ctx) => percentualTooltip(ctx, total)
-                        }
-                    }
-                }
-            }
+            options: { responsive: true, maintainAspectRatio: false, plugins: { tooltip: { callbacks: { label: (ctx) => percentualTooltip(ctx, total) } } } }
         });
 
         // Gráfico de Turno (pie)
@@ -507,30 +510,16 @@
             type: 'pie',
             data: {
                 labels: Object.keys(turnoCount),
-                datasets: [{
-                    data: Object.values(turnoCount),
-                    backgroundColor: ['#2ecc71', '#e74c3c']
-                }]
+                datasets: [{ data: Object.values(turnoCount), backgroundColor: ['#2ecc71', '#e74c3c'] }]
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    tooltip: {
-                        callbacks: {
-                            label: (ctx) => percentualTooltip(ctx, total)
-                        }
-                    }
-                }
-            }
+            options: { responsive: true, maintainAspectRatio: false, plugins: { tooltip: { callbacks: { label: (ctx) => percentualTooltip(ctx, total) } } } }
         });
     }
 
-    // Reseta todos os filtros para valor padrão
+    // Reseta filtros
     function resetFiltros() {
         filtroNome.value = '';
         filtroCidade.value = '';
-        // Ao resetar cidade, precisamos repopular bairros com todos
         popularBairrosPorCidade('');
         filtroCurso.value = '';
         filtroModalidade.value = '';
@@ -543,22 +532,22 @@
         dados = novosDados.filter(item => item.nome || item.celular);
         if (dados.length > 0) {
             popularFiltros();
-            popularBairrosPorCidade(''); // inicialmente todos os bairros
-            resetFiltros();               // limpa seleções
+            popularBairrosPorCidade('');
+            resetFiltros();
             renderizarTabela();
             desabilitarFiltros(false);
             fileInfo.textContent = `${dados.length} registros carregados`;
         } else {
             dados = [];
             tbody.innerHTML = `<tr><td colspan="8" class="placeholder">Nenhum registro encontrado na planilha.</td></tr>`;
-            contadorSpan.textContent = `0 registros exibidos`;
+            contadorSpan.textContent = '0 registros exibidos';
             desabilitarFiltros(true);
-            chartsRow.style.display = 'none';
+            chartsGrid.style.display = 'none';
             fileInfo.textContent = 'Arquivo vazio ou inválido';
         }
     }
 
-    // Processa arquivo Excel
+    // Processa Excel
     function processarArquivo(arquivo) {
         const reader = new FileReader();
         reader.onload = (e) => {
@@ -588,7 +577,7 @@
         reader.readAsArrayBuffer(arquivo);
     }
 
-    // ----- Event listeners -----
+    // Eventos
     fileInput.addEventListener('change', (e) => {
         const arquivo = e.target.files[0];
         if (!arquivo) return;
@@ -603,20 +592,17 @@
         tbody.innerHTML = `<tr><td colspan="8" class="placeholder">Faça o upload de um arquivo Excel para começar.</td></tr>`;
         contadorSpan.textContent = '0 registros exibidos';
         desabilitarFiltros(true);
-        chartsRow.style.display = 'none';
+        chartsGrid.style.display = 'none';
     });
 
-    // Quando a cidade mudar, atualiza os bairros
     filtroCidade.addEventListener('change', () => {
         popularBairrosPorCidade(filtroCidade.value);
-        // Após popular, se o bairro selecionado anteriormente não estiver na nova lista, reseta
         if (filtroBairro.value && !Array.from(filtroBairro.options).some(opt => opt.value === filtroBairro.value)) {
             filtroBairro.value = '';
         }
-        renderizarTabela(); // reaplica filtros com a nova cidade
+        renderizarTabela();
     });
 
-    // Demais filtros
     filtroNome.addEventListener('input', renderizarTabela);
     filtroBairro.addEventListener('change', renderizarTabela);
     filtroCurso.addEventListener('change', renderizarTabela);
@@ -630,7 +616,7 @@
 
     // Inicialização
     desabilitarFiltros(true);
-    chartsRow.style.display = 'none';
+    chartsGrid.style.display = 'none';
 })();
 </script>
 </body>
