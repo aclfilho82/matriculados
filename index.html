@@ -3,11 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestão de Matriculados · Gráficos em Destaque</title>
+    <title>Gestão de Matriculados · Exportar Gráficos</title>
     <!-- SheetJS (XLSX) -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- html2canvas (para capturar gráficos) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- jsPDF (para gerar PDF) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -126,6 +130,35 @@
             font-weight: 600;
             font-size: 0.9rem;
         }
+        .export-actions {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .btn-export {
+            background: #2c3e50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: 0.2s;
+        }
+        .btn-export:hover {
+            background: #1a252f;
+        }
+        .btn-export-pdf {
+            background: #c0392b;
+        }
+        .btn-export-pdf:hover {
+            background: #962d22;
+        }
         /* Grid para gráficos: 2 por linha */
         .charts-grid {
             display: grid;
@@ -141,12 +174,36 @@
             border: 1px solid #dde4ec;
             display: flex;
             flex-direction: column;
+            position: relative;
         }
-        .chart-card h3 {
-            margin: 0 0 12px 0;
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .chart-header h3 {
+            margin: 0;
             font-size: 1rem;
             color: #2c3e50;
-            text-align: center;
+        }
+        .btn-png {
+            background: none;
+            border: 1px solid #3498db;
+            color: #3498db;
+            border-radius: 20px;
+            padding: 4px 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .btn-png:hover {
+            background: #3498db;
+            color: white;
         }
         canvas {
             max-height: 280px;
@@ -199,14 +256,14 @@
         }
         @media (max-width: 800px) {
             .charts-grid {
-                grid-template-columns: 1fr; /* 1 coluna em mobile */
+                grid-template-columns: 1fr;
             }
         }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>📊 Gestão de Matriculados · Gráficos Ampliados</h1>
+    <h1>📊 Gestão de Matriculados · Exportar Gráficos (PNG/PDF)</h1>
 
     <div class="upload-area">
         <label for="file-upload" class="upload-label">📂 Selecionar Excel</label>
@@ -254,24 +311,39 @@
 
     <div class="stats">
         <span class="counter" id="contador">0 registros exibidos</span>
+        <div class="export-actions" id="exportActions" style="display: none;">
+            <button class="btn-export btn-export-pdf" id="exportPdfBtn">📄 Exportar todos como PDF</button>
+        </div>
     </div>
 
     <!-- Gráficos em grid 2x2 -->
     <div class="charts-grid" id="chartsGrid" style="display: none;">
-        <div class="chart-card">
-            <h3>🏙️ Distribuição por Cidade (top 10)</h3>
+        <div class="chart-card" id="chartCidadeCard">
+            <div class="chart-header">
+                <h3>🏙️ Cidade (top 10)</h3>
+                <button class="btn-png" data-chart="cidade">📥 PNG</button>
+            </div>
             <canvas id="chartCidade"></canvas>
         </div>
-        <div class="chart-card">
-            <h3>📚 Distribuição por Curso</h3>
+        <div class="chart-card" id="chartCursoCard">
+            <div class="chart-header">
+                <h3>📚 Curso</h3>
+                <button class="btn-png" data-chart="curso">📥 PNG</button>
+            </div>
             <canvas id="chartCurso"></canvas>
         </div>
-        <div class="chart-card">
-            <h3>📌 Distribuição por Modalidade</h3>
+        <div class="chart-card" id="chartModalidadeCard">
+            <div class="chart-header">
+                <h3>📌 Modalidade</h3>
+                <button class="btn-png" data-chart="modalidade">📥 PNG</button>
+            </div>
             <canvas id="chartModalidade"></canvas>
         </div>
-        <div class="chart-card">
-            <h3>🌞 Distribuição por Turno</h3>
+        <div class="chart-card" id="chartTurnoCard">
+            <div class="chart-header">
+                <h3>🌞 Turno</h3>
+                <button class="btn-png" data-chart="turno">📥 PNG</button>
+            </div>
             <canvas id="chartTurno"></canvas>
         </div>
     </div>
@@ -316,6 +388,8 @@
     const tbody = document.getElementById('corpoTabela');
     const filtersContainer = document.getElementById('filters-container');
     const chartsGrid = document.getElementById('chartsGrid');
+    const exportActions = document.getElementById('exportActions');
+    const exportPdfBtn = document.getElementById('exportPdfBtn');
 
     // Gráficos
     let chartCidade, chartCurso, chartModalidade, chartTurno;
@@ -441,9 +515,11 @@
     function atualizarGraficos(dadosFiltrados) {
         if (dadosFiltrados.length === 0) {
             chartsGrid.style.display = 'none';
+            exportActions.style.display = 'none';
             return;
         }
         chartsGrid.style.display = 'grid';
+        exportActions.style.display = 'flex';
         const total = dadosFiltrados.length;
 
         // Gráfico de Cidade (barras) - top 10
@@ -467,10 +543,9 @@
             }
         });
 
-        // Gráfico de Curso (barras) - TODOS os cursos (sem slice)
+        // Gráfico de Curso (barras) - TODOS os cursos
         const cursoCount = {};
         dadosFiltrados.forEach(d => { if (d.curso) cursoCount[d.curso] = (cursoCount[d.curso] || 0) + 1; });
-        // Ordenar por quantidade (decrescente) para melhor visualização
         const sortedCursos = Object.entries(cursoCount).sort((a,b) => b[1] - a[1]);
         const labelsCursos = sortedCursos.map(item => item[0]);
         const dataCursos = sortedCursos.map(item => item[1]);
@@ -543,6 +618,7 @@
             contadorSpan.textContent = '0 registros exibidos';
             desabilitarFiltros(true);
             chartsGrid.style.display = 'none';
+            exportActions.style.display = 'none';
             fileInfo.textContent = 'Arquivo vazio ou inválido';
         }
     }
@@ -577,6 +653,62 @@
         reader.readAsArrayBuffer(arquivo);
     }
 
+    // ---------- Exportação PNG ----------
+    document.querySelectorAll('.btn-png').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            const chartType = this.dataset.chart;
+            let canvasId, fileName;
+            switch(chartType) {
+                case 'cidade': canvasId = 'chartCidade'; fileName = 'cidade.png'; break;
+                case 'curso': canvasId = 'chartCurso'; fileName = 'curso.png'; break;
+                case 'modalidade': canvasId = 'chartModalidade'; fileName = 'modalidade.png'; break;
+                case 'turno': canvasId = 'chartTurno'; fileName = 'turno.png'; break;
+                default: return;
+            }
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            const link = document.createElement('a');
+            link.download = fileName;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        });
+    });
+
+    // ---------- Exportação PDF (todos os gráficos) ----------
+    exportPdfBtn.addEventListener('click', async function() {
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF('landscape', 'mm', 'a4');
+        const cards = ['chartCidadeCard', 'chartCursoCard', 'chartModalidadeCard', 'chartTurnoCard'];
+        
+        for (let i = 0; i < cards.length; i++) {
+            const card = document.getElementById(cards[i]);
+            if (!card) continue;
+            
+            // Capturar o card inteiro (incluindo título e gráfico)
+            const canvas = await html2canvas(card, { scale: 2, backgroundColor: '#f9f9fc' });
+            const imgData = canvas.toDataURL('image/png');
+            
+            // Adicionar ao PDF (pular para nova página após o primeiro)
+            if (i > 0) pdf.addPage();
+            
+            // Calcular dimensões para caber na página (largura máxima 260mm, altura proporcional)
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            const imgWidth = pageWidth - 20; // margem
+            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+            
+            // Centralizar verticalmente se couber
+            let y = 10;
+            if (imgHeight < pageHeight - 20) {
+                y = (pageHeight - imgHeight) / 2;
+            }
+            
+            pdf.addImage(imgData, 'PNG', 10, y, imgWidth, imgHeight);
+        }
+        
+        pdf.save('graficos_matriculados.pdf');
+    });
+
     // Eventos
     fileInput.addEventListener('change', (e) => {
         const arquivo = e.target.files[0];
@@ -593,6 +725,7 @@
         contadorSpan.textContent = '0 registros exibidos';
         desabilitarFiltros(true);
         chartsGrid.style.display = 'none';
+        exportActions.style.display = 'none';
     });
 
     filtroCidade.addEventListener('change', () => {
@@ -617,6 +750,7 @@
     // Inicialização
     desabilitarFiltros(true);
     chartsGrid.style.display = 'none';
+    exportActions.style.display = 'none';
 })();
 </script>
 </body>
