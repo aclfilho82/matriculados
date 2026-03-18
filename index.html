@@ -12,6 +12,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <!-- jsPDF (para gerar PDF) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- jsPDF AutoTable (para tabelas em PDF) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.0/jspdf.plugin.autotable.min.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -312,7 +314,11 @@
     <div class="stats">
         <span class="counter" id="contador">0 registros exibidos</span>
         <div class="export-actions" id="exportActions" style="display: none;">
-            <button class="btn-export btn-export-pdf" id="exportPdfBtn">📄 Exportar todos como PDF</button>
+            <!-- Botão original para exportar gráficos em PDF (agora com texto mais claro) -->
+            <button class="btn-export btn-export-pdf" id="exportPdfBtn">📸 Exportar gráficos PDF</button>
+            <!-- NOVOS BOTÕES: Exportar tabela filtrada em Excel e PDF -->
+            <button class="btn-export" id="exportExcelBtn">📊 Exportar Excel (tabela)</button>
+            <button class="btn-export" id="exportPdfTableBtn">📄 Exportar PDF (tabela)</button>
         </div>
     </div>
 
@@ -390,6 +396,9 @@
     const chartsGrid = document.getElementById('chartsGrid');
     const exportActions = document.getElementById('exportActions');
     const exportPdfBtn = document.getElementById('exportPdfBtn');
+    // NOVOS BOTÕES
+    const exportExcelBtn = document.getElementById('exportExcelBtn');
+    const exportPdfTableBtn = document.getElementById('exportPdfTableBtn');
 
     // Gráficos
     let chartCidade, chartCurso, chartModalidade, chartTurno;
@@ -707,6 +716,63 @@
         }
         
         pdf.save('graficos_matriculados.pdf');
+    });
+
+    // ---------- NOVO: Exportar tabela filtrada para Excel ----------
+    exportExcelBtn.addEventListener('click', function() {
+        const filtrados = getDadosFiltrados();
+        if (filtrados.length === 0) {
+            alert('Não há registros para exportar.');
+            return;
+        }
+        // Prepara os dados para o Excel (mesmas colunas da tabela)
+        const dadosExcel = filtrados.map(aluno => ({
+            Nome: aluno.nome || '',
+            Celular: aluno.celular || '',
+            Cidade: aluno.cidade || '',
+            Bairro: aluno.bairro || '',
+            Classificação: aluno.classificacao || '',
+            Curso: aluno.curso || '',
+            Turno: aluno.turno || '',
+            Modalidade: aluno.modalidade || ''
+        }));
+        const ws = XLSX.utils.json_to_sheet(dadosExcel);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Matriculados');
+        XLSX.writeFile(wb, 'matriculados_filtrados.xlsx');
+    });
+
+    // ---------- NOVO: Exportar tabela filtrada para PDF ----------
+    exportPdfTableBtn.addEventListener('click', function() {
+        const filtrados = getDadosFiltrados();
+        if (filtrados.length === 0) {
+            alert('Não há registros para exportar.');
+            return;
+        }
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('landscape', 'mm', 'a4'); // paisagem para caber mais colunas
+
+        // Define as colunas da tabela
+        const colunas = ['Nome', 'Celular', 'Cidade', 'Bairro', 'Classif.', 'Curso', 'Turno', 'Modalidade'];
+        const linhas = filtrados.map(aluno => [
+            aluno.nome || '',
+            aluno.celular || '',
+            aluno.cidade || '',
+            aluno.bairro || '',
+            aluno.classificacao || '',
+            aluno.curso || '',
+            aluno.turno || '',
+            aluno.modalidade || ''
+        ]);
+
+        doc.autoTable({
+            head: [colunas],
+            body: linhas,
+            styles: { fontSize: 7, cellPadding: 1.5 },
+            headStyles: { fillColor: [44, 62, 80] },
+            margin: { top: 20 }
+        });
+        doc.save('tabela_matriculados.pdf');
     });
 
     // Eventos
