@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestão de Matriculados · Exportar Gráficos</title>
+    <title>Gestão de Matriculados · Funil de Conversão Automático</title>
     <!-- SheetJS (XLSX) -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
     <!-- Chart.js -->
@@ -161,6 +161,51 @@
         .btn-export-pdf:hover {
             background: #962d22;
         }
+        /* Funnel Metrics Cards */
+        .funnel-metrics {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .metric-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 16px;
+            padding: 20px;
+            color: white;
+            text-align: center;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+        }
+        .metric-card:hover {
+            transform: translateY(-5px);
+        }
+        .metric-card h3 {
+            margin: 0 0 10px 0;
+            font-size: 1rem;
+            opacity: 0.9;
+        }
+        .metric-numbers {
+            font-size: 2rem;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .metric-percent {
+            font-size: 1.2rem;
+            font-weight: 600;
+            background: rgba(255,255,255,0.2);
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            margin-top: 8px;
+        }
+        .metric-card.inscritos { background: linear-gradient(135deg, #3498db, #2980b9); }
+        .metric-card.aprovados { background: linear-gradient(135deg, #f39c12, #e67e22); }
+        .metric-card.matriculados { background: linear-gradient(135deg, #27ae60, #229954); }
+        .metric-card.conversion1 { background: linear-gradient(135deg, #9b59b6, #8e44ad); }
+        .metric-card.conversion2 { background: linear-gradient(135deg, #e74c3c, #c0392b); }
+        .metric-card.conversion3 { background: linear-gradient(135deg, #1abc9c, #16a085); }
+        
         /* Grid para gráficos: 2 por linha */
         .charts-grid {
             display: grid;
@@ -237,6 +282,15 @@
         tr:hover {
             background: #f8fafd;
         }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.75rem;
+        }
+        .status-aprovado { background: #f39c12; color: white; }
+        .status-matriculado { background: #27ae60; color: white; }
         .modalidade-badge {
             display: inline-block;
             padding: 3px 8px;
@@ -256,8 +310,17 @@
             color: #7f8c8d;
             font-style: italic;
         }
+        .info-note {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 10px 15px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            color: #856404;
+        }
         @media (max-width: 800px) {
-            .charts-grid {
+            .charts-grid, .funnel-metrics {
                 grid-template-columns: 1fr;
             }
         }
@@ -265,13 +328,21 @@
 </head>
 <body>
 <div class="container">
-    <h1>📊 Gestão de Matriculados · Exportar Gráficos (PNG/PDF)</h1>
+    <h1>📊 Gestão de Matriculados · Funil de Conversão Automático</h1>
 
     <div class="upload-area">
         <label for="file-upload" class="upload-label">📂 Selecionar Excel</label>
         <input type="file" id="file-upload" accept=".xlsx, .xls, .csv" style="display: none;">
         <span id="file-info">Nenhum arquivo carregado</span>
         <button id="reset-dados" class="clear-btn" style="background:#95a5a6;">Remover dados</button>
+    </div>
+
+    <div class="info-note" id="infoNote" style="display: none;">
+        💡 <strong>Entendendo as métricas:</strong><br>
+        • <strong>Inscritos</strong> = Total de todos os registros (inclui aprovados e matriculados)<br>
+        • <strong>Aprovados</strong> = Aprovados + Matriculados (todos que foram aprovados)<br>
+        • <strong>Matriculados</strong> = Alunos com matrícula confirmada<br>
+        • As conversões são calculadas conforme a lógica do funil
     </div>
 
     <!-- Filtros (inicialmente desabilitados) -->
@@ -314,11 +385,43 @@
     <div class="stats">
         <span class="counter" id="contador">0 registros exibidos</span>
         <div class="export-actions" id="exportActions" style="display: none;">
-            <!-- Botão original para exportar gráficos em PDF (agora com texto mais claro) -->
             <button class="btn-export btn-export-pdf" id="exportPdfBtn">📸 Exportar gráficos PDF</button>
-            <!-- NOVOS BOTÕES: Exportar tabela filtrada em Excel e PDF -->
             <button class="btn-export" id="exportExcelBtn">📊 Exportar Excel (tabela)</button>
             <button class="btn-export" id="exportPdfTableBtn">📄 Exportar PDF (tabela)</button>
+        </div>
+    </div>
+
+    <!-- Funnel de Conversão - Métricas -->
+    <div class="funnel-metrics" id="funnelMetrics" style="display: none;">
+        <div class="metric-card inscritos">
+            <h3>📝 Total de Inscritos</h3>
+            <div class="metric-numbers" id="totalInscritos">0</div>
+            <div class="metric-percent">Base total</div>
+        </div>
+        <div class="metric-card aprovados">
+            <h3>✅ Total de Aprovados</h3>
+            <div class="metric-numbers" id="totalAprovados">0</div>
+            <div class="metric-percent" id="aprovadosPercent">0% dos inscritos</div>
+        </div>
+        <div class="metric-card matriculados">
+            <h3>🎓 Total de Matriculados</h3>
+            <div class="metric-numbers" id="totalMatriculados">0</div>
+            <div class="metric-percent" id="matriculadosPercent">0% dos aprovados</div>
+        </div>
+        <div class="metric-card conversion1">
+            <h3>📊 Conversão: Inscritos → Aprovados</h3>
+            <div class="metric-numbers" id="conversionIA">0%</div>
+            <div class="metric-percent" id="conversionIANumbers">0 / 0</div>
+        </div>
+        <div class="metric-card conversion2">
+            <h3>📊 Conversão: Aprovados → Matriculados</h3>
+            <div class="metric-numbers" id="conversionAM">0%</div>
+            <div class="metric-percent" id="conversionAMNumbers">0 / 0</div>
+        </div>
+        <div class="metric-card conversion3">
+            <h3>📊 Conversão Geral: Inscritos → Matriculados</h3>
+            <div class="metric-numbers" id="conversionIM">0%</div>
+            <div class="metric-percent" id="conversionIMNumbers">0 / 0</div>
         </div>
     </div>
 
@@ -345,12 +448,12 @@
             </div>
             <canvas id="chartModalidade"></canvas>
         </div>
-        <div class="chart-card" id="chartTurnoCard">
+        <div class="chart-card" id="chartStatusCard">
             <div class="chart-header">
-                <h3>🌞 Turno</h3>
-                <button class="btn-png" data-chart="turno">📥 PNG</button>
+                <h3>📊 Funil de Conversão</h3>
+                <button class="btn-png" data-chart="status">📥 PNG</button>
             </div>
-            <canvas id="chartTurno"></canvas>
+            <canvas id="chartStatus"></canvas>
         </div>
     </div>
 
@@ -358,19 +461,20 @@
     <div class="table-wrapper">
         <table id="tabelaAlunos">
             <thead>
-            <tr>
-                <th>Nome</th>
-                <th>Celular</th>
-                <th>Cidade</th>
-                <th>Bairro</th>
-                <th>Classificação</th>
-                <th>Curso</th>
-                <th>Turno</th>
-                <th>Modalidade</th>
-            </tr>
+                <tr>
+                    <th>Nome</th>
+                    <th>Celular</th>
+                    <th>Cidade</th>
+                    <th>Bairro</th>
+                    <th>Classificação</th>
+                    <th>Curso</th>
+                    <th>Turno</th>
+                    <th>Modalidade</th>
+                    <th>Status</th>
+                </tr>
             </thead>
             <tbody id="corpoTabela">
-            <tr><td colspan="8" class="placeholder">Faça o upload de um arquivo Excel para começar.</td></tr>
+                <tr><td colspan="9" class="placeholder">Faça o upload de um arquivo Excel para começar.</td></tr>
             </tbody>
         </table>
     </div>
@@ -382,6 +486,7 @@
     const fileInput = document.getElementById('file-upload');
     const fileInfo = document.getElementById('file-info');
     const resetBtn = document.getElementById('reset-dados');
+    const infoNote = document.getElementById('infoNote');
     const filtroNome = document.getElementById('filtroNome');
     const filtroCidade = document.getElementById('filtroCidade');
     const filtroBairro = document.getElementById('filtroBairro');
@@ -394,19 +499,65 @@
     const tbody = document.getElementById('corpoTabela');
     const filtersContainer = document.getElementById('filters-container');
     const chartsGrid = document.getElementById('chartsGrid');
+    const funnelMetrics = document.getElementById('funnelMetrics');
     const exportActions = document.getElementById('exportActions');
     const exportPdfBtn = document.getElementById('exportPdfBtn');
-    // NOVOS BOTÕES
     const exportExcelBtn = document.getElementById('exportExcelBtn');
     const exportPdfTableBtn = document.getElementById('exportPdfTableBtn');
 
     // Gráficos
-    let chartCidade, chartCurso, chartModalidade, chartTurno;
+    let chartCidade, chartCurso, chartModalidade, chartStatus;
 
     // Dados carregados
     let dados = [];
 
-    // ----- Utilitários -----
+    // Função para calcular o status automaticamente baseado nos dados
+    function calcularStatusAutomatico(item) {
+        // Regras automáticas para determinar status:
+        // 1. Se tem matrícula confirmada -> Matriculado
+        // 2. Se tem aprovação ou classificação -> Aprovado
+        // 3. Caso contrário -> Inscrito (padrão)
+        
+        // Verifica se é matriculado
+        const matriculaIndicators = ['matriculado', 'matrícula', 'confirmado', 'efetivado', 'matricula'];
+        const nomeLower = (item.nome || '').toLowerCase();
+        const classificacaoLower = (item.classificacao || '').toLowerCase();
+        const observacoesLower = (item.observacoes || item.obs || '').toLowerCase();
+        
+        // Se tem número de matrícula
+        if (item.matricula && item.matricula !== '' && item.matricula !== 'null' && item.matricula !== '0') {
+            return 'matriculado';
+        }
+        
+        // Verifica palavras-chave de matrícula
+        for (let indicator of matriculaIndicators) {
+            if (nomeLower.includes(indicator) || classificacaoLower.includes(indicator) || observacoesLower.includes(indicator)) {
+                return 'matriculado';
+            }
+        }
+        
+        // Verifica se é aprovado
+        const aprovadoIndicators = ['aprovado', 'classificado', 'selecionado', 'aprovacao'];
+        for (let indicator of aprovadoIndicators) {
+            if (classificacaoLower.includes(indicator) || nomeLower.includes(indicator)) {
+                return 'aprovado';
+            }
+        }
+        
+        // Se tem campo aprovado explícito
+        if (item.aprovado === 'sim' || item.aprovado === 'SIM' || item.aprovado === true) {
+            return 'aprovado';
+        }
+        
+        // Se classificação contém "aprovado"
+        if (classificacaoLower === 'aprovado' || classificacaoLower.includes('aprovado')) {
+            return 'aprovado';
+        }
+        
+        // Padrão: inscrito
+        return 'inscrito';
+    }
+
     function desabilitarFiltros(desabilitar = true) {
         const elementos = [filtroNome, filtroCidade, filtroBairro, filtroCurso, filtroModalidade, filtroClassificacao, filtroTurno, limparFiltrosBtn];
         elementos.forEach(el => el.disabled = desabilitar);
@@ -414,30 +565,24 @@
         filtersContainer.style.pointerEvents = desabilitar ? 'none' : 'auto';
     }
 
-    // Preenche todos os selects (exceto bairro)
     function popularFiltros() {
-        // Cidade
         const cidades = [...new Set(dados.map(d => d.cidade).filter(Boolean))].sort();
         filtroCidade.innerHTML = '<option value="">Todas</option>';
         cidades.forEach(v => filtroCidade.appendChild(new Option(v, v)));
 
-        // Curso
         const cursos = [...new Set(dados.map(d => d.curso).filter(Boolean))].sort();
         filtroCurso.innerHTML = '<option value="">Todos</option>';
         cursos.forEach(v => filtroCurso.appendChild(new Option(v, v)));
 
-        // Modalidade
         const modalidades = [...new Set(dados.map(d => d.modalidade).filter(Boolean))].sort();
         filtroModalidade.innerHTML = '<option value="">Todas</option>';
         modalidades.forEach(v => filtroModalidade.appendChild(new Option(v, v)));
 
-        // Classificação
         const classificacoes = [...new Set(dados.map(d => d.classificacao).filter(Boolean))].sort();
         filtroClassificacao.innerHTML = '<option value="">Todas</option>';
         classificacoes.forEach(v => filtroClassificacao.appendChild(new Option(v, v)));
     }
 
-    // Preenche bairros conforme cidade selecionada
     function popularBairrosPorCidade(cidadeSelecionada) {
         let bairros = [];
         if (cidadeSelecionada) {
@@ -449,7 +594,6 @@
         bairros.forEach(v => filtroBairro.appendChild(new Option(v, v)));
     }
 
-    // Classe para badge de modalidade
     function classeModalidade(mod) {
         if (!mod) return '';
         const m = mod.toLowerCase();
@@ -460,7 +604,24 @@
         return '';
     }
 
-    // Retorna dados filtrados
+    function getStatusClass(status) {
+        switch(status) {
+            case 'inscrito': return 'status-inscrito';
+            case 'aprovado': return 'status-aprovado';
+            case 'matriculado': return 'status-matriculado';
+            default: return '';
+        }
+    }
+
+    function getStatusText(status) {
+        switch(status) {
+            case 'inscrito': return 'Inscrito';
+            case 'aprovado': return 'Aprovado';
+            case 'matriculado': return 'Matriculado';
+            default: return status || 'Inscrito';
+        }
+    }
+
     function getDadosFiltrados() {
         const nomeFiltro = filtroNome.value.toLowerCase().trim();
         const cidadeFiltro = filtroCidade.value;
@@ -482,27 +643,84 @@
         });
     }
 
-    // Tooltip com percentual
-    function percentualTooltip(context, total) {
-        const label = context.label || '';
-        const value = context.raw || 0;
-        const percent = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
-        return `${label}: ${value} (${percent}%)`;
+    function calcularMetricas(dadosFiltrados) {
+        // INSCRITOS = TOTAL de todos os registros
+        const inscritos = dadosFiltrados.length;
+        
+        // MATRICULADOS = alunos com status 'matriculado'
+        const matriculados = dadosFiltrados.filter(d => d.status === 'matriculado').length;
+        
+        // APROVADOS = aprovados + matriculados
+        const aprovados = dadosFiltrados.filter(d => d.status === 'aprovado').length + matriculados;
+        
+        // Percentual de Aprovados = (Aprovados + Matriculados) / Inscritos × 100
+        const percentualAprovados = inscritos > 0 ? ((aprovados / inscritos) * 100).toFixed(1) : 0;
+        
+        // Percentual de Matriculados em relação aos Aprovados = Matriculados / (Aprovados + Matriculados) × 100
+        const percentualMatriculadosSobreAprovados = aprovados > 0 ? ((matriculados / aprovados) * 100).toFixed(1) : 0;
+        
+        // Conversão Inscritos → Aprovados
+        const conversaoIA = inscritos > 0 ? ((aprovados / inscritos) * 100).toFixed(1) : 0;
+        
+        // Conversão Aprovados → Matriculados
+        const conversaoAM = aprovados > 0 ? ((matriculados / aprovados) * 100).toFixed(1) : 0;
+        
+        // Conversão Inscritos → Matriculados
+        const conversaoIM = inscritos > 0 ? ((matriculados / inscritos) * 100).toFixed(1) : 0;
+        
+        return { 
+            inscritos, 
+            aprovados, 
+            matriculados, 
+            percentualAprovados,
+            percentualMatriculadosSobreAprovados,
+            conversaoIA, 
+            conversaoAM, 
+            conversaoIM 
+        };
     }
 
-    // Atualiza tabela e gráficos
+    function atualizarMetricas(dadosFiltrados) {
+        if (dadosFiltrados.length === 0) {
+            funnelMetrics.style.display = 'none';
+            return;
+        }
+        
+        funnelMetrics.style.display = 'grid';
+        const metricas = calcularMetricas(dadosFiltrados);
+        
+        document.getElementById('totalInscritos').textContent = metricas.inscritos;
+        document.getElementById('totalAprovados').textContent = metricas.aprovados;
+        document.getElementById('totalMatriculados').textContent = metricas.matriculados;
+        
+        document.getElementById('aprovadosPercent').textContent = `${metricas.percentualAprovados}% dos inscritos`;
+        document.getElementById('matriculadosPercent').textContent = `${metricas.percentualMatriculadosSobreAprovados}% dos aprovados`;
+        
+        document.getElementById('conversionIA').textContent = `${metricas.conversaoIA}%`;
+        document.getElementById('conversionIANumbers').textContent = `${metricas.aprovados} / ${metricas.inscritos}`;
+        
+        document.getElementById('conversionAM').textContent = `${metricas.conversaoAM}%`;
+        document.getElementById('conversionAMNumbers').textContent = `${metricas.matriculados} / ${metricas.aprovados}`;
+        
+        document.getElementById('conversionIM').textContent = `${metricas.conversaoIM}%`;
+        document.getElementById('conversionIMNumbers').textContent = `${metricas.matriculados} / ${metricas.inscritos}`;
+    }
+
     function renderizarTabela() {
         const dadosFiltrados = getDadosFiltrados();
         contadorSpan.textContent = `${dadosFiltrados.length} registro(s) exibido(s)`;
+        
+        atualizarMetricas(dadosFiltrados);
 
-        // Tabela
         tbody.innerHTML = '';
         if (dadosFiltrados.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:32px;">Nenhum aluno encontrado com os filtros aplicados.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:32px;">Nenhum aluno encontrado com os filtros aplicados.</td></tr>`;
         } else {
             dadosFiltrados.forEach(aluno => {
                 const tr = document.createElement('tr');
                 const classeMod = classeModalidade(aluno.modalidade);
+                const statusClass = getStatusClass(aluno.status);
+                const statusText = getStatusText(aluno.status);
                 tr.innerHTML = `
                     <td>${aluno.nome || ''}</td>
                     <td>${aluno.celular || ''}</td>
@@ -512,13 +730,20 @@
                     <td>${aluno.curso || ''}</td>
                     <td>${aluno.turno || ''}</td>
                     <td><span class="modalidade-badge ${classeMod}">${aluno.modalidade || ''}</span></td>
+                    <td><span class="status-badge ${statusClass}">${statusText}</span></td>
                 `;
                 tbody.appendChild(tr);
             });
         }
 
-        // Gráficos
         atualizarGraficos(dadosFiltrados);
+    }
+
+    function percentualTooltip(context, total) {
+        const label = context.label || '';
+        const value = context.raw || 0;
+        const percent = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
+        return `${label}: ${value} (${percent}%)`;
     }
 
     function atualizarGraficos(dadosFiltrados) {
@@ -527,6 +752,7 @@
             exportActions.style.display = 'none';
             return;
         }
+        
         chartsGrid.style.display = 'grid';
         exportActions.style.display = 'flex';
         const total = dadosFiltrados.length;
@@ -552,7 +778,7 @@
             }
         });
 
-        // Gráfico de Curso (barras) - TODOS os cursos
+        // Gráfico de Curso (barras)
         const cursoCount = {};
         dadosFiltrados.forEach(d => { if (d.curso) cursoCount[d.curso] = (cursoCount[d.curso] || 0) + 1; });
         const sortedCursos = Object.entries(cursoCount).sort((a,b) => b[1] - a[1]);
@@ -586,21 +812,55 @@
             options: { responsive: true, maintainAspectRatio: false, plugins: { tooltip: { callbacks: { label: (ctx) => percentualTooltip(ctx, total) } } } }
         });
 
-        // Gráfico de Turno (pie)
-        const turnoCount = {};
-        dadosFiltrados.forEach(d => { if (d.turno) turnoCount[d.turno] = (turnoCount[d.turno] || 0) + 1; });
-        if (chartTurno) chartTurno.destroy();
-        chartTurno = new Chart(document.getElementById('chartTurno'), {
-            type: 'pie',
+        // Gráfico de Status/Funil
+        const metricas = calcularMetricas(dadosFiltrados);
+        const statusData = [metricas.inscritos, metricas.aprovados, metricas.matriculados];
+        if (chartStatus) chartStatus.destroy();
+        chartStatus = new Chart(document.getElementById('chartStatus'), {
+            type: 'bar',
             data: {
-                labels: Object.keys(turnoCount),
-                datasets: [{ data: Object.values(turnoCount), backgroundColor: ['#2ecc71', '#e74c3c'] }]
+                labels: ['Inscritos (Total)', 'Aprovados (Aprovados + Matriculados)', 'Matriculados'],
+                datasets: [{ 
+                    data: statusData, 
+                    backgroundColor: ['#3498db', '#f39c12', '#27ae60'],
+                    borderRadius: 6,
+                    label: 'Quantidade'
+                }]
             },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { tooltip: { callbacks: { label: (ctx) => percentualTooltip(ctx, total) } } } }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: { 
+                        callbacks: { 
+                            label: (ctx) => {
+                                const value = ctx.raw;
+                                let percent = 0;
+                                if (ctx.dataIndex === 0) {
+                                    percent = 100;
+                                } else if (ctx.dataIndex === 1) {
+                                    percent = metricas.percentualAprovados;
+                                } else {
+                                    percent = metricas.percentualMatriculadosSobreAprovados;
+                                }
+                                return `${ctx.label}: ${value} (${percent}%)`;
+                            }
+                        } 
+                    },
+                    legend: { display: false }
+                },
+                scales: { 
+                    y: { 
+                        beginAtZero: true, 
+                        ticks: { stepSize: 1 },
+                        title: { display: true, text: 'Quantidade de Alunos' }
+                    },
+                    x: { title: { display: true, text: 'Status' } }
+                }
+            }
         });
     }
 
-    // Reseta filtros
     function resetFiltros() {
         filtroNome.value = '';
         filtroCidade.value = '';
@@ -611,28 +871,34 @@
         filtroTurno.value = '';
     }
 
-    // Carrega novos dados
     function setDados(novosDados) {
-        dados = novosDados.filter(item => item.nome || item.celular);
+        // Calcular status automaticamente para cada registro
+        dados = novosDados.filter(item => item.nome || item.celular).map(item => ({
+            ...item,
+            status: calcularStatusAutomatico(item)
+        }));
+        
         if (dados.length > 0) {
             popularFiltros();
             popularBairrosPorCidade('');
             resetFiltros();
             renderizarTabela();
             desabilitarFiltros(false);
-            fileInfo.textContent = `${dados.length} registros carregados`;
+            infoNote.style.display = 'block';
+            fileInfo.textContent = `${dados.length} registros carregados (Status calculado automaticamente)`;
         } else {
             dados = [];
-            tbody.innerHTML = `<tr><td colspan="8" class="placeholder">Nenhum registro encontrado na planilha.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="9" class="placeholder">Nenhum registro encontrado na planilha. Verifique se há dados válidos.</td></tr>`;
             contadorSpan.textContent = '0 registros exibidos';
             desabilitarFiltros(true);
             chartsGrid.style.display = 'none';
+            funnelMetrics.style.display = 'none';
             exportActions.style.display = 'none';
+            infoNote.style.display = 'none';
             fileInfo.textContent = 'Arquivo vazio ou inválido';
         }
     }
 
-    // Processa Excel
     function processarArquivo(arquivo) {
         const reader = new FileReader();
         reader.onload = (e) => {
@@ -643,26 +909,29 @@
                 const linhas = XLSX.utils.sheet_to_json(firstSheet, { header: 0 });
 
                 const dadosImportados = linhas.map(linha => ({
-                    nome: linha['Nome'] || linha['nome'] || '',
-                    celular: linha['Celular'] || linha['celular'] !== undefined ? String(linha['Celular'] || linha['celular'] || '') : '',
-                    cidade: linha['Cidade'] || linha['cidade'] || '',
-                    bairro: linha['Bairro'] || linha['bairro'] || '',
-                    classificacao: linha['Classificação'] || linha['classificação'] || linha['Classificacao'] || '',
-                    curso: linha['Curso'] || linha['curso'] || '',
-                    turno: linha['Turno'] || linha['turno'] || '',
-                    modalidade: linha['Modalidade'] || linha['modalidade'] || ''
+                    nome: linha['Nome'] || linha['nome'] || linha['NOME'] || '',
+                    celular: linha['Celular'] || linha['celular'] || linha['CELULAR'] || (linha['Telefone'] || linha['telefone'] || ''),
+                    cidade: linha['Cidade'] || linha['cidade'] || linha['CIDADE'] || '',
+                    bairro: linha['Bairro'] || linha['bairro'] || linha['BAIRRO'] || '',
+                    classificacao: linha['Classificação'] || linha['classificação'] || linha['Classificacao'] || linha['classificacao'] || linha['SITUAÇÃO'] || linha['Situação'] || '',
+                    curso: linha['Curso'] || linha['curso'] || linha['CURSO'] || '',
+                    turno: linha['Turno'] || linha['turno'] || linha['TURNO'] || '',
+                    modalidade: linha['Modalidade'] || linha['modalidade'] || linha['MODALIDADE'] || '',
+                    matricula: linha['Matrícula'] || linha['matrícula'] || linha['Matricula'] || linha['matricula'] || '',
+                    aprovado: linha['Aprovado'] || linha['aprovado'] || '',
+                    observacoes: linha['Observações'] || linha['observações'] || linha['Obs'] || ''
                 }));
 
                 setDados(dadosImportados);
             } catch (error) {
-                alert('Erro ao processar: ' + error.message);
+                alert('Erro ao processar o arquivo: ' + error.message);
                 setDados([]);
             }
         };
         reader.readAsArrayBuffer(arquivo);
     }
 
-    // ---------- Exportação PNG ----------
+    // Exportação PNG
     document.querySelectorAll('.btn-png').forEach(btn => {
         btn.addEventListener('click', function(e) {
             const chartType = this.dataset.chart;
@@ -671,7 +940,7 @@
                 case 'cidade': canvasId = 'chartCidade'; fileName = 'cidade.png'; break;
                 case 'curso': canvasId = 'chartCurso'; fileName = 'curso.png'; break;
                 case 'modalidade': canvasId = 'chartModalidade'; fileName = 'modalidade.png'; break;
-                case 'turno': canvasId = 'chartTurno'; fileName = 'turno.png'; break;
+                case 'status': canvasId = 'chartStatus'; fileName = 'funil_conversao.png'; break;
                 default: return;
             }
             const canvas = document.getElementById(canvasId);
@@ -683,31 +952,27 @@
         });
     });
 
-    // ---------- Exportação PDF (todos os gráficos) ----------
+    // Exportar gráficos PDF
     exportPdfBtn.addEventListener('click', async function() {
         const { jsPDF } = window.jspdf;
         const pdf = new jsPDF('landscape', 'mm', 'a4');
-        const cards = ['chartCidadeCard', 'chartCursoCard', 'chartModalidadeCard', 'chartTurnoCard'];
+        const cards = ['chartCidadeCard', 'chartCursoCard', 'chartModalidadeCard', 'chartStatusCard'];
         
         for (let i = 0; i < cards.length; i++) {
             const card = document.getElementById(cards[i]);
             if (!card) continue;
             
-            // Capturar o card inteiro (incluindo título e gráfico)
             const canvas = await html2canvas(card, { scale: 2, backgroundColor: '#f9f9fc' });
             const imgData = canvas.toDataURL('image/png');
             
-            // Adicionar ao PDF (pular para nova página após o primeiro)
             if (i > 0) pdf.addPage();
             
-            // Calcular dimensões para caber na página (largura máxima 260mm, altura proporcional)
             const pageWidth = pdf.internal.pageSize.getWidth();
-            const pageHeight = pdf.internal.pageSize.getHeight();
-            const imgWidth = pageWidth - 20; // margem
+            const imgWidth = pageWidth - 20;
             const imgHeight = (canvas.height * imgWidth) / canvas.width;
             
-            // Centralizar verticalmente se couber
             let y = 10;
+            const pageHeight = pdf.internal.pageSize.getHeight();
             if (imgHeight < pageHeight - 20) {
                 y = (pageHeight - imgHeight) / 2;
             }
@@ -715,17 +980,17 @@
             pdf.addImage(imgData, 'PNG', 10, y, imgWidth, imgHeight);
         }
         
-        pdf.save('graficos_matriculados.pdf');
+        pdf.save('graficos_funil_conversao.pdf');
     });
 
-    // ---------- NOVO: Exportar tabela filtrada para Excel ----------
+    // Exportar tabela Excel
     exportExcelBtn.addEventListener('click', function() {
         const filtrados = getDadosFiltrados();
         if (filtrados.length === 0) {
             alert('Não há registros para exportar.');
             return;
         }
-        // Prepara os dados para o Excel (mesmas colunas da tabela)
+        
         const dadosExcel = filtrados.map(aluno => ({
             Nome: aluno.nome || '',
             Celular: aluno.celular || '',
@@ -734,26 +999,28 @@
             Classificação: aluno.classificacao || '',
             Curso: aluno.curso || '',
             Turno: aluno.turno || '',
-            Modalidade: aluno.modalidade || ''
+            Modalidade: aluno.modalidade || '',
+            Status: getStatusText(aluno.status)
         }));
+        
         const ws = XLSX.utils.json_to_sheet(dadosExcel);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Matriculados');
-        XLSX.writeFile(wb, 'matriculados_filtrados.xlsx');
+        XLSX.utils.book_append_sheet(wb, ws, 'Matriculados_Funil');
+        XLSX.writeFile(wb, 'matriculados_funil_conversao.xlsx');
     });
 
-    // ---------- NOVO: Exportar tabela filtrada para PDF ----------
+    // Exportar tabela PDF
     exportPdfTableBtn.addEventListener('click', function() {
         const filtrados = getDadosFiltrados();
         if (filtrados.length === 0) {
             alert('Não há registros para exportar.');
             return;
         }
+        
         const { jsPDF } = window.jspdf;
-        const doc = new jsPDF('landscape', 'mm', 'a4'); // paisagem para caber mais colunas
-
-        // Define as colunas da tabela
-        const colunas = ['Nome', 'Celular', 'Cidade', 'Bairro', 'Classif.', 'Curso', 'Turno', 'Modalidade'];
+        const doc = new jsPDF('landscape', 'mm', 'a4');
+        
+        const colunas = ['Nome', 'Celular', 'Cidade', 'Bairro', 'Classif.', 'Curso', 'Turno', 'Modalidade', 'Status'];
         const linhas = filtrados.map(aluno => [
             aluno.nome || '',
             aluno.celular || '',
@@ -762,9 +1029,10 @@
             aluno.classificacao || '',
             aluno.curso || '',
             aluno.turno || '',
-            aluno.modalidade || ''
+            aluno.modalidade || '',
+            getStatusText(aluno.status)
         ]);
-
+        
         doc.autoTable({
             head: [colunas],
             body: linhas,
@@ -772,7 +1040,21 @@
             headStyles: { fillColor: [44, 62, 80] },
             margin: { top: 20 }
         });
-        doc.save('tabela_matriculados.pdf');
+        
+        // Adicionar página com resumo das métricas
+        const metricas = calcularMetricas(filtrados);
+        doc.addPage();
+        doc.setFontSize(16);
+        doc.text('Resumo do Funil de Conversão', 14, 20);
+        doc.setFontSize(12);
+        doc.text(`Total de Inscritos: ${metricas.inscritos}`, 14, 35);
+        doc.text(`Total de Aprovados (Aprovados + Matriculados): ${metricas.aprovados} (${metricas.percentualAprovados}% dos inscritos)`, 14, 45);
+        doc.text(`Total de Matriculados: ${metricas.matriculados} (${metricas.percentualMatriculadosSobreAprovados}% dos aprovados)`, 14, 55);
+        doc.text(`Taxa de Conversão (Inscritos → Aprovados): ${metricas.conversaoIA}% (${metricas.aprovados}/${metricas.inscritos})`, 14, 70);
+        doc.text(`Taxa de Conversão (Aprovados → Matriculados): ${metricas.conversaoAM}% (${metricas.matriculados}/${metricas.aprovados})`, 14, 80);
+        doc.text(`Taxa de Conversão Geral (Inscritos → Matriculados): ${metricas.conversaoIM}% (${metricas.matriculados}/${metricas.inscritos})`, 14, 90);
+        
+        doc.save('tabela_matriculados_funil.pdf');
     });
 
     // Eventos
@@ -787,11 +1069,13 @@
     resetBtn.addEventListener('click', () => {
         setDados([]);
         fileInfo.textContent = 'Nenhum arquivo carregado';
-        tbody.innerHTML = `<tr><td colspan="8" class="placeholder">Faça o upload de um arquivo Excel para começar.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="placeholder">Faça o upload de um arquivo Excel para começar.</td></tr>`;
         contadorSpan.textContent = '0 registros exibidos';
         desabilitarFiltros(true);
         chartsGrid.style.display = 'none';
+        funnelMetrics.style.display = 'none';
         exportActions.style.display = 'none';
+        infoNote.style.display = 'none';
     });
 
     filtroCidade.addEventListener('change', () => {
@@ -813,10 +1097,11 @@
         renderizarTabela();
     });
 
-    // Inicialização
     desabilitarFiltros(true);
     chartsGrid.style.display = 'none';
+    funnelMetrics.style.display = 'none';
     exportActions.style.display = 'none';
+    infoNote.style.display = 'none';
 })();
 </script>
 </body>
