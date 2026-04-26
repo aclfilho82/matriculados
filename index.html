@@ -291,6 +291,7 @@
         }
         .status-aprovado { background: #f39c12; color: white; }
         .status-matriculado { background: #27ae60; color: white; }
+        .status-inscrito { background: #95a5a6; color: white; }
         .modalidade-badge {
             display: inline-block;
             padding: 3px 8px;
@@ -513,45 +514,22 @@
 
     // Função para calcular o status automaticamente baseado nos dados
     function calcularStatusAutomatico(item) {
-        // Regras automáticas para determinar status:
-        // 1. Se tem matrícula confirmada -> Matriculado
-        // 2. Se tem aprovação ou classificação -> Aprovado
-        // 3. Caso contrário -> Inscrito (padrão)
+        // Primeiro, verifica o campo de classificação que veio do Excel
+        const classificacao = (item.classificacao || '').toLowerCase();
         
-        // Verifica se é matriculado
-        const matriculaIndicators = ['matriculado', 'matrícula', 'confirmado', 'efetivado', 'matricula'];
-        const nomeLower = (item.nome || '').toLowerCase();
-        const classificacaoLower = (item.classificacao || '').toLowerCase();
-        const observacoesLower = (item.observacoes || item.obs || '').toLowerCase();
-        
-        // Se tem número de matrícula
-        if (item.matricula && item.matricula !== '' && item.matricula !== 'null' && item.matricula !== '0') {
+        if (classificacao.includes('matriculado')) {
             return 'matriculado';
         }
+        if (classificacao.includes('aprovado')) {
+            return 'aprovado';
+        }
         
-        // Verifica palavras-chave de matrícula
+        // Fallback para outros campos, se necessário
+        const matriculaIndicators = ['matricula', 'matrícula'];
         for (let indicator of matriculaIndicators) {
-            if (nomeLower.includes(indicator) || classificacaoLower.includes(indicator) || observacoesLower.includes(indicator)) {
+            if (item[indicator] && item[indicator] !== '' && item[indicator] !== 'null' && item[indicator] !== '0') {
                 return 'matriculado';
             }
-        }
-        
-        // Verifica se é aprovado
-        const aprovadoIndicators = ['aprovado', 'classificado', 'selecionado', 'aprovacao'];
-        for (let indicator of aprovadoIndicators) {
-            if (classificacaoLower.includes(indicator) || nomeLower.includes(indicator)) {
-                return 'aprovado';
-            }
-        }
-        
-        // Se tem campo aprovado explícito
-        if (item.aprovado === 'sim' || item.aprovado === 'SIM' || item.aprovado === true) {
-            return 'aprovado';
-        }
-        
-        // Se classificação contém "aprovado"
-        if (classificacaoLower === 'aprovado' || classificacaoLower.includes('aprovado')) {
-            return 'aprovado';
         }
         
         // Padrão: inscrito
@@ -581,6 +559,9 @@
         const classificacoes = [...new Set(dados.map(d => d.classificacao).filter(Boolean))].sort();
         filtroClassificacao.innerHTML = '<option value="">Todas</option>';
         classificacoes.forEach(v => filtroClassificacao.appendChild(new Option(v, v)));
+        
+        // Popular bairros iniciais
+        popularBairrosPorCidade('');
     }
 
     function popularBairrosPorCidade(cidadeSelecionada) {
@@ -880,7 +861,6 @@
         
         if (dados.length > 0) {
             popularFiltros();
-            popularBairrosPorCidade('');
             resetFiltros();
             renderizarTabela();
             desabilitarFiltros(false);
@@ -909,9 +889,10 @@
                 const linhas = XLSX.utils.sheet_to_json(firstSheet, { header: 0 });
 
                 const dadosImportados = linhas.map(linha => ({
-                    nome: linha['Nome'] || linha['nome'] || linha['NOME'] || '',
-                    celular: linha['Celular'] || linha['celular'] || linha['CELULAR'] || (linha['Telefone'] || linha['telefone'] || ''),
-                    cidade: linha['Cidade'] || linha['cidade'] || linha['CIDADE'] || '',
+                    // Mapeamento corrigido para o cabeçalho do arquivo fornecido
+                    nome: linha['Nome da Pessoa'] || linha['nome'] || linha['NOME'] || linha['Nome'] || '',
+                    celular: linha['Celular da Pessoa'] || linha['celular'] || linha['CELULAR'] || (linha['Telefone'] || linha['telefone'] || ''),
+                    cidade: linha['Cidade do Endereço'] || linha['cidade'] || linha['CIDADE'] || linha['Cidade'] || '',
                     bairro: linha['Bairro'] || linha['bairro'] || linha['BAIRRO'] || '',
                     classificacao: linha['Classificação'] || linha['classificação'] || linha['Classificacao'] || linha['classificacao'] || linha['SITUAÇÃO'] || linha['Situação'] || '',
                     curso: linha['Curso'] || linha['curso'] || linha['CURSO'] || '',
@@ -924,6 +905,7 @@
 
                 setDados(dadosImportados);
             } catch (error) {
+                console.error(error);
                 alert('Erro ao processar o arquivo: ' + error.message);
                 setDados([]);
             }
