@@ -1,1 +1,607 @@
-tttttttttttttttttttttttttttttttttt
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Projeção de Captação 26.2 — Modelo Estatístico por Unidade</title>
+<style>
+:root {
+  --bg:#f0f2f5; --card:#fff; --text:#1a1f36; --muted:#5a6e8a; --line:#e4e7ed;
+  --blue:#1f4e78; --blue2:#2c75ad; --green:#059669; --red:#dc2626; --orange:#ea580c;
+  --gray50:#f9fafb; --gray100:#f3f4f6; --gray200:#e5e7eb; --purple:#6d28d9;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--text);line-height:1.5}
+.header{background:linear-gradient(135deg,#0f2b3d 0%,#1a4a6f 100%);color:white;padding:2rem}
+.header h1{font-size:1.75rem;font-weight:800;margin-bottom:.5rem;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}
+.header p{opacity:.88;font-size:.9rem}
+.badge{background:var(--orange);color:white;padding:.25rem .75rem;border-radius:2rem;font-size:.72rem;font-weight:700}
+.container{max-width:1700px;margin:0 auto;padding:1.5rem}
+.info-card,.proj-destaque{background:#e0f2fe;border-left:4px solid var(--blue);padding:.85rem 1rem;border-radius:.65rem;margin-bottom:1rem;font-size:.78rem}
+.proj-destaque{background:#fef3c7;border-left-color:var(--orange);font-weight:700}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:1rem;margin-bottom:1.25rem}
+.stat-card{background:var(--card);border-radius:1rem;padding:1.15rem;border:1px solid var(--line);box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.stat-label{font-size:.72rem;font-weight:800;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem}
+.stat-value{font-size:1.75rem;font-weight:900} .good{color:var(--green)} .bad{color:var(--red)} .warn{color:var(--orange)}
+.panel{background:var(--card);border-radius:1rem;border:1px solid var(--line);overflow:hidden}
+.panel-header{padding:1rem 1.25rem;border-bottom:1px solid var(--line);background:var(--gray50);display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap}
+.panel-title{font-weight:800} .note{font-size:.72rem;font-weight:400;color:var(--muted);margin-top:.25rem}
+.toolbar{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center}
+.search-input,select{padding:.52rem .75rem;border:1px solid var(--line);border-radius:.55rem;font-size:.85rem;background:white}
+.search-input{width:220px}
+.btn{padding:.55rem 1rem;border-radius:.55rem;font-weight:800;font-size:.75rem;cursor:pointer;border:none;transition:.2s}
+.btn-primary{background:var(--blue);color:white} .btn-primary:hover{background:var(--blue2)}
+.btn-secondary{background:var(--gray100);color:var(--text);border:1px solid var(--line)} .btn-outline{background:white;border:1px solid var(--line)}
+.filter-bar{padding:.85rem 1.25rem;background:var(--gray50);border-bottom:1px solid var(--line);display:flex;gap:1rem;flex-wrap:wrap;align-items:center}
+.ranking-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:.75rem;padding:1.25rem;background:var(--gray50);border-bottom:1px solid var(--line)}
+.ranking-card{background:white;border:1px solid var(--line);border-radius:.75rem;padding:.9rem;cursor:pointer;transition:.2s}
+.ranking-card:hover{transform:translateY(-2px);box-shadow:0 4px 8px rgba(0,0,0,.08)}
+.ranking-card.active{border:2px solid var(--blue);background:#f0f7ff}
+.ranking-name{font-weight:900;font-size:.72rem;text-transform:uppercase;color:var(--muted);margin-bottom:.45rem}
+.ranking-pct{font-size:1.45rem;font-weight:900}
+.bar-bg{height:.38rem;background:var(--gray200);border-radius:1rem;overflow:hidden;margin-top:.5rem}
+.bar-fill{height:100%;background:var(--blue);border-radius:1rem;transition:.25s}
+.ranking-small{font-size:.66rem;color:var(--muted);margin-top:.5rem}
+.table-wrapper{overflow:auto;max-height:560px}
+.data-table{width:100%;border-collapse:collapse;font-size:.72rem;min-width:1750px}
+.data-table th{background:var(--blue);color:white;padding:.7rem .45rem;text-align:right;position:sticky;top:0;z-index:5}
+.data-table th:first-child{text-align:left;left:0;z-index:10}
+.data-table td{padding:.58rem .45rem;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+.data-table td:first-child{text-align:left;background:white;position:sticky;left:0;z-index:2;font-weight:700}
+.data-table tr:hover td{background:#f8fafc} .data-table tr.selected td{background:#eef2ff}
+.edit-num{width:78px;padding:.35rem;border:1px solid var(--line);border-radius:.45rem;text-align:right;font-weight:800;background:#fef3c7}
+.good-text{color:var(--green);font-weight:900} .bad-text{color:var(--red);font-weight:900} .warn-text{color:var(--orange);font-weight:900}
+.scenario{font-weight:900} .scenario.cons{color:var(--orange)} .scenario.exp{color:var(--blue)} .scenario.opt{color:var(--green)}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.58);backdrop-filter:blur(4px);z-index:1000;align-items:center;justify-content:center;padding:1rem}
+.modal.open{display:flex}
+.modal-content{background:white;border-radius:1rem;width:min(96vw,960px);max-height:92vh;overflow:auto}
+.modal-header{padding:1rem 1.4rem;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:1rem}
+.modal-close{background:var(--red);color:white;border:none;padding:.4rem .9rem;border-radius:.5rem;cursor:pointer;font-weight:800}
+.modal-body{padding:1.25rem} canvas{width:100%;height:auto;background:white;border-radius:.5rem}
+.legend{display:flex;gap:1rem;margin-top:1rem;font-size:.72rem;flex-wrap:wrap}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:.25rem} .dot.blue{background:var(--blue)} .dot.green{background:var(--green)} .dot.red{background:var(--red)} .dot.orange{background:var(--orange)} .dot.purple{background:var(--purple)}
+.method-box{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:.75rem;margin-bottom:1rem}
+.method-item{background:white;border:1px solid var(--line);border-radius:.75rem;padding:.75rem;font-size:.75rem}
+
+.manager-summary-wrapper{overflow:auto;border-top:1px solid var(--line)}
+.manager-summary-table{width:100%;border-collapse:collapse;font-size:.76rem;min-width:1100px;background:white}
+.manager-summary-table th{background:#0f2b3d;color:white;padding:.75rem .55rem;text-align:right}
+.manager-summary-table th:first-child{text-align:left}
+.manager-summary-table td{padding:.68rem .55rem;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+.manager-summary-table td:first-child{text-align:left;font-weight:900;color:var(--blue)}
+.manager-summary-title{padding:1rem 1.25rem;background:#f8fafc;border-bottom:1px solid var(--line);font-weight:900;color:#0f2b3d}
+.manager-summary-title .note{font-weight:400;color:var(--muted);font-size:.72rem;margin-top:.25rem}
+.gestor-click-row:hover td{background:#f0f7ff;}
+.rank-badge{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;border-radius:999px;background:#e0f2fe;color:#0f2b3d;font-weight:900;margin-right:.4rem}
+.manager-chart-box{padding:1rem 1.25rem;border-top:1px solid var(--line);background:white}
+.manager-chart-title{font-weight:900;color:#0f2b3d;margin-bottom:.35rem}
+.manager-chart-note{font-size:.72rem;color:var(--muted);margin-bottom:.7rem}
+.badge-cap{display:inline-block;padding:.18rem .45rem;border-radius:999px;background:#fef3c7;color:#92400e;font-weight:900;font-size:.66rem;border:1px solid #f59e0b}
+
+
+/* Campos numéricos sem setas e estáveis para digitação */
+.edit-num{appearance:textfield;-moz-appearance:textfield;}
+.edit-num::-webkit-outer-spin-button,
+.edit-num::-webkit-inner-spin-button{
+  -webkit-appearance:none;
+  margin:0;
+}
+.edit-num:focus{
+  outline:2px solid rgba(31,78,120,.28);
+  border-color:#1f4e78;
+  background:#fff7d6;
+}
+
+@media(max-width:720px){.container{padding:.8rem}.header{padding:1.25rem}.header h1{font-size:1.25rem}.search-input{width:100%}.toolbar{width:100%}.btn{flex:1}}
+</style>
+</head>
+<body>
+<header class="header">
+  <h1>Projeção de Captação 26.2 <span class="badge">Modelo estatístico por unidade</span></h1>
+  <p>Agora a projeção usa Maio e Junho/2026 como dados reais e projeta Julho a Outubro pelo histórico mensal de cada unidade em 2023.2, 2024.2 e 2025.2.</p>
+</header>
+<div class="container">
+  <div class="method-box">
+    <div class="method-item"><strong>📌 Modelo esperado:</strong><br>usa a mediana dos fatores históricos Junho → mês da própria unidade, com pequena suavização global.</div>
+    <div class="method-item"><strong>🟠 Conservador:</strong><br>usa o percentil 25 dos fatores históricos válidos. Evita pessimismo extremo causado por um único ano ruim.</div>
+    <div class="method-item"><strong>🟢 Otimista:</strong><br>usa o percentil 75 e limite estatístico sobre a Esperada. Evita projeções exageradas por outliers.</div>
+    <div class="method-item"><strong>🛡️ Teto estratégico:</strong><br>Maio e Junho são reais. Julho a Outubro não são cortados; o sistema apenas sinaliza quando a projeção ultrapassa 110% da meta.</div>
+  </div>
+  <div class="info-card" id="fatoresDisplay">📊 Calculando fatores históricos...</div>
+  <div class="proj-destaque" id="projDestaque">📈 Calculando projeção...</div>
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-label">Captação MAIO/2026</div><div class="stat-value" id="k2026maio">0</div></div>
+    <div class="stat-card"><div class="stat-label">Captação JUNHO/2026</div><div class="stat-value" id="k2026atual">0</div></div>
+    <div class="stat-card"><div class="stat-label">Meta Geral 2026.2</div><div class="stat-value" id="kmeta">0</div></div>
+    <div class="stat-card"><div class="stat-label">Conservadora OUT/26</div><div class="stat-value warn" id="kcons">0</div></div>
+    <div class="stat-card"><div class="stat-label">Esperada OUT/26</div><div class="stat-value" id="kproj">0</div></div>
+    <div class="stat-card"><div class="stat-label">Otimista OUT/26</div><div class="stat-value good" id="kopt">0</div></div>
+    <div class="stat-card"><div class="stat-label">Esperada / Meta</div><div class="stat-value" id="kgrowth">0%</div></div>
+  </div>
+  <div class="panel" style="margin-bottom:1.25rem;">
+    <div class="manager-summary-title">
+      📊 Consolidado Executivo por Gestor
+      <div class="note">Consolidação automática por gestor. Clique em um gestor na tabela ou nos cards abaixo para abrir o gráfico de linha executivo.</div>
+    </div>
+    <div class="manager-summary-wrapper">
+      <table class="manager-summary-table">
+        <thead>
+          <tr>
+            <th>Ranking / Gestor</th>
+            <th>MAIO/26</th>
+            <th>JUNHO/26</th>
+            <th>Meta</th>
+            <th>Conservadora</th>
+            <th>Esperada</th>
+            <th>Otimista</th>
+            <th>% Atual</th>
+            <th>% Esperada</th>
+            <th>Dif. Esperada</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="gestorResumoBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-title">Unidades <div class="note">Clique na unidade para ver o gráfico. Edite MAIO/ATUAL para simular cenários.</div></div>
+      <div class="toolbar">
+        <input type="text" id="search" class="search-input" placeholder="Pesquisar unidade...">
+        <button class="btn btn-primary" onclick="setSortMode('projDesc')">↓ Maior % projetado</button>
+        <button class="btn btn-secondary" onclick="setSortMode('projAsc')">↑ Menor % projetado</button>
+        <button class="btn btn-outline" onclick="setSortMode('currentDesc')">% atual</button>
+        <button class="btn btn-outline" onclick="resetValues()">Restaurar</button>
+      </div>
+    </div>
+    <div class="filter-bar">
+      <label><strong>Gestor:</strong></label>
+      <select id="managerFilter"><option value="TODOS">Todos</option><option>OPERAÇÕES</option><option>PAULO PALMEIRA</option><option>MARCUS PONTES</option><option>EDEN FERREIRA</option><option>AISLANE BELO</option></select>
+      <label><strong>Unidade:</strong></label>
+      <select id="unitFilter"><option value="TODAS">Todas</option></select>
+    </div>
+    <div class="ranking-grid" id="rankingGestores"></div>
+    <div class="table-wrapper">
+      <table class="data-table" id="tbl">
+        <thead><tr>
+          <th>Unidade</th><th>Gestor</th><th>MAIO/26</th><th>JUNHO/26</th>
+          <th>JUNHO<br><span style="font-size:.62rem">Real</span></th><th>Proj. JUL</th><th>Proj. AGO</th><th>Proj. SET</th><th>Proj. OUT</th>
+          <th>Meta</th><th>% Atual</th><th>Conserv.</th><th>Esperada</th><th>Otimista</th><th>% Esperada</th><th>Status</th><th>Obs.</th>
+        </tr></thead><tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<div id="unitModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header"><div><strong id="unitTitle">Projeção mensal</strong><div class="note" id="unitSummary"></div></div><button class="modal-close" onclick="closeUnitModal()">Fechar</button></div>
+    <div class="modal-body"><canvas id="chartUnit" width="880" height="430"></canvas><div class="legend"><span><i class="dot orange"></i>Conservadora</span><span><i class="dot blue"></i>Esperada</span><span><i class="dot green"></i>Otimista</span><span><i class="dot red"></i>Meta</span><span><i class="dot purple"></i>Atual</span></div></div>
+  </div>
+</div>
+
+<div id="gestorModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div><strong id="gestorTitle">Projeção mensal do gestor</strong><div class="note" id="gestorSummary"></div></div>
+      <button class="modal-close" onclick="closeGestorModal()">Fechar</button>
+    </div>
+    <div class="modal-body">
+      <canvas id="chartGestorLine" width="880" height="430"></canvas>
+      <div class="legend"><span><i class="dot orange"></i>Conservadora</span><span><i class="dot blue"></i>Esperada</span><span><i class="dot green"></i>Otimista</span><span><i class="dot red"></i>Meta</span><span><i class="dot purple"></i>Atual</span></div>
+    </div>
+  </div>
+</div>
+<script>
+const HISTORICO = {"UNINASSAU - Graças": {"MAIO": {"2023": 130, "2024": 75, "2025": 79}, "JUNHO": {"2023": 355, "2024": 322, "2025": 204}, "JULHO": {"2023": 1125, "2024": 722, "2025": 778}, "AGOSTO": {"2023": 1744, "2024": 1392, "2025": 1343}, "SETEMBRO": {"2023": 1926, "2024": 1728, "2025": 1711}, "OUTUBRO": {"2023": 1968, "2024": 1976, "2025": 1820}}, "UNINASSAU - João Pessoa": {"MAIO": {"2023": 49, "2024": 52, "2025": 49}, "JUNHO": {"2023": 100, "2024": 182, "2025": 133}, "JULHO": {"2023": 260, "2024": 362, "2025": 348}, "AGOSTO": {"2023": 475, "2024": 610, "2025": 532}, "SETEMBRO": {"2023": 559, "2024": 730, "2025": 649}, "OUTUBRO": {"2023": 592, "2024": 801, "2025": 712}}, "UNINASSAU - Campina Grande": {"MAIO": {"2023": 45, "2024": 27, "2025": 61}, "JUNHO": {"2023": 101, "2024": 93, "2025": 115}, "JULHO": {"2023": 333, "2024": 232, "2025": 275}, "AGOSTO": {"2023": 530, "2024": 467, "2025": 459}, "SETEMBRO": {"2023": 623, "2024": 585, "2025": 600}, "OUTUBRO": {"2023": 657, "2024": 697, "2025": 679}}, "UNINASSAU - Salvador": {"MAIO": {"2023": 29, "2024": 38, "2025": 22}, "JUNHO": {"2023": 60, "2024": 90, "2025": 42}, "JULHO": {"2023": 162, "2024": 200, "2025": 124}, "AGOSTO": {"2023": 312, "2024": 325, "2025": 225}, "SETEMBRO": {"2023": 372, "2024": 381, "2025": 273}, "OUTUBRO": {"2023": 391, "2024": 437, "2025": 290}}, "UNINASSAU - Natal": {"MAIO": {"2023": 86, "2024": 94, "2025": 72}, "JUNHO": {"2023": 199, "2024": 254, "2025": 155}, "JULHO": {"2023": 479, "2024": 451, "2025": 471}, "AGOSTO": {"2023": 762, "2024": 793, "2025": 798}, "SETEMBRO": {"2023": 891, "2024": 928, "2025": 939}, "OUTUBRO": {"2023": 948, "2024": 1035, "2025": 988}}, "UNINASSAU - Maceió": {"MAIO": {"2023": 163, "2024": 138, "2025": 107}, "JUNHO": {"2023": 338, "2024": 278, "2025": 233}, "JULHO": {"2023": 569, "2024": 495, "2025": 504}, "AGOSTO": {"2023": 888, "2024": 846, "2025": 790}, "SETEMBRO": {"2023": 959, "2024": 1000, "2025": 934}, "OUTUBRO": {"2023": 982, "2024": 1091, "2025": 976}}, "UNINASSAU - Aracajú": {"MAIO": {"2023": 57, "2024": 62, "2025": 41}, "JUNHO": {"2023": 129, "2024": 140, "2025": 108}, "JULHO": {"2023": 288, "2024": 319, "2025": 304}, "AGOSTO": {"2023": 557, "2024": 633, "2025": 537}, "SETEMBRO": {"2023": 626, "2024": 750, "2025": 622}, "OUTUBRO": {"2023": 637, "2024": 819, "2025": 653}}, "UNINASSAU - Fortaleza": {"MAIO": {"2023": 74, "2024": 75, "2025": 56}, "JUNHO": {"2023": 185, "2024": 247, "2025": 158}, "JULHO": {"2023": 428, "2024": 489, "2025": 460}, "AGOSTO": {"2023": 780, "2024": 825, "2025": 760}, "SETEMBRO": {"2023": 902, "2024": 987, "2025": 935}, "OUTUBRO": {"2023": 945, "2024": 1068, "2025": 974}}, "UNINASSAU - Caruaru": {"MAIO": {"2023": 84, "2024": 66, "2025": 65}, "JUNHO": {"2023": 173, "2024": 187, "2025": 140}, "JULHO": {"2023": 432, "2024": 384, "2025": 371}, "AGOSTO": {"2023": 730, "2024": 773, "2025": 617}, "SETEMBRO": {"2023": 827, "2024": 916, "2025": 871}, "OUTUBRO": {"2023": 867, "2024": 1004, "2025": 922}}, "UNINASSAU - São Luís": {"MAIO": {"2023": 23, "2024": 15, "2025": 20}, "JUNHO": {"2023": 55, "2024": 75, "2025": 47}, "JULHO": {"2023": 132, "2024": 125, "2025": 134}, "AGOSTO": {"2023": 296, "2024": 222, "2025": 262}, "SETEMBRO": {"2023": 369, "2024": 270, "2025": 302}, "OUTUBRO": {"2023": 397, "2024": 330, "2025": 330}}, "UNINASSAU - Paulista": {"MAIO": {"2023": 28, "2024": 37, "2025": 38}, "JUNHO": {"2023": 64, "2024": 97, "2025": 81}, "JULHO": {"2023": 180, "2024": 211, "2025": 254}, "AGOSTO": {"2023": 331, "2024": 391, "2025": 441}, "SETEMBRO": {"2023": 402, "2024": 471, "2025": 515}, "OUTUBRO": {"2023": 417, "2024": 499, "2025": 567}}, "UNINASSAU - Redenção (Aliança)": {"MAIO": {"2023": 19, "2024": 26, "2025": 19}, "JUNHO": {"2023": 65, "2024": 90, "2025": 49}, "JULHO": {"2023": 180, "2024": 212, "2025": 181}, "AGOSTO": {"2023": 348, "2024": 366, "2025": 332}, "SETEMBRO": {"2023": 398, "2024": 450, "2025": 396}, "OUTUBRO": {"2023": 428, "2024": 504, "2025": 419}}, "UNINASSAU - Teresina": {"MAIO": {"2023": 44, "2024": 26, "2025": 29}, "JUNHO": {"2023": 113, "2024": 99, "2025": 72}, "JULHO": {"2023": 299, "2024": 215, "2025": 224}, "AGOSTO": {"2023": 496, "2024": 431, "2025": 434}, "SETEMBRO": {"2023": 578, "2024": 529, "2025": 525}, "OUTUBRO": {"2023": 631, "2024": 607, "2025": 556}}, "UNINASSAU - Parnaíba": {"MAIO": {"2023": 18, "2024": 24, "2025": 18}, "JUNHO": {"2023": 45, "2024": 62, "2025": 52}, "JULHO": {"2023": 164, "2024": 130, "2025": 140}, "AGOSTO": {"2023": 240, "2024": 272, "2025": 261}, "SETEMBRO": {"2023": 285, "2024": 354, "2025": 321}, "OUTUBRO": {"2023": 298, "2024": 388, "2025": 356}}, "UNINASSAU - Vitória da Conquista": {"MAIO": {"2023": 16, "2024": 21, "2025": 24}, "JUNHO": {"2023": 23, "2024": 43, "2025": 50}, "JULHO": {"2023": 81, "2024": 87, "2025": 106}, "AGOSTO": {"2023": 170, "2024": 150, "2025": 208}, "SETEMBRO": {"2023": 194, "2024": 208, "2025": 251}, "OUTUBRO": {"2023": 199, "2024": 258, "2025": 289}}, "UNINASSAU - Olinda": {"MAIO": {"2023": 19, "2024": 28, "2025": 19}, "JUNHO": {"2023": 46, "2024": 85, "2025": 50}, "JULHO": {"2023": 161, "2024": 232, "2025": 226}, "AGOSTO": {"2023": 303, "2024": 426, "2025": 388}, "SETEMBRO": {"2023": 357, "2024": 493, "2025": 449}, "OUTUBRO": {"2023": 411, "2024": 512, "2025": 476}}, "UNINASSAU - Petrolina": {"MAIO": {"2023": 37, "2024": 39, "2025": 57}, "JUNHO": {"2023": 131, "2024": 129, "2025": 133}, "JULHO": {"2023": 299, "2024": 241, "2025": 326}, "AGOSTO": {"2023": 558, "2024": 492, "2025": 583}, "SETEMBRO": {"2023": 629, "2024": 618, "2025": 749}, "OUTUBRO": {"2023": 669, "2024": 724, "2025": 825}}, "UNINASSAU - Cabo": {"MAIO": {"2023": 17, "2024": 30, "2025": 23}, "JUNHO": {"2023": 35, "2024": 94, "2025": 49}, "JULHO": {"2023": 81, "2024": 167, "2025": 127}, "AGOSTO": {"2023": 220, "2024": 268, "2025": 230}, "SETEMBRO": {"2023": 267, "2024": 315, "2025": 275}, "OUTUBRO": {"2023": 279, "2024": 331, "2025": 289}}, "UNAMA - Belém": {"MAIO": {"2023": 55, "2024": 73, "2025": 42}, "JUNHO": {"2023": 173, "2024": 207, "2025": 133}, "JULHO": {"2023": 524, "2024": 437, "2025": 472}, "AGOSTO": {"2023": 980, "2024": 1143, "2025": 876}, "SETEMBRO": {"2023": 1182, "2024": 1426, "2025": 1085}, "OUTUBRO": {"2023": 1217, "2024": 1589, "2025": 1189}}, "UNAMA - Santarém": {"MAIO": {"2023": 52, "2024": 60, "2025": 34}, "JUNHO": {"2023": 116, "2024": 190, "2025": 82}, "JULHO": {"2023": 258, "2024": 358, "2025": 249}, "AGOSTO": {"2023": 431, "2024": 575, "2025": 432}, "SETEMBRO": {"2023": 490, "2024": 652, "2025": 530}, "OUTUBRO": {"2023": 495, "2024": 689, "2025": 560}}, "UNINASSAU - Parangaba": {"MAIO": {"2023": 73, "2024": 59, "2025": 44}, "JUNHO": {"2023": 187, "2024": 169, "2025": 103}, "JULHO": {"2023": 377, "2024": 329, "2025": 315}, "AGOSTO": {"2023": 653, "2024": 562, "2025": 558}, "SETEMBRO": {"2023": 743, "2024": 698, "2025": 702}, "OUTUBRO": {"2023": 802, "2024": 795, "2025": 747}}, "UNINASSAU - Rio de Janeiro": {"MAIO": {"2023": 33, "2024": 20, "2025": 19}, "JUNHO": {"2023": 65, "2024": 60, "2025": 53}, "JULHO": {"2023": 109, "2024": 124, "2025": 98}, "AGOSTO": {"2023": 210, "2024": 223, "2025": 162}, "SETEMBRO": {"2023": 238, "2024": 249, "2025": 181}, "OUTUBRO": {"2023": 241, "2024": 269, "2025": 193}}, "UNINASSAU - Garanhuns": {"MAIO": {"2023": 12, "2024": 23, "2025": 25}, "JUNHO": {"2023": 37, "2024": 50, "2025": 54}, "JULHO": {"2023": 74, "2024": 83, "2025": 118}, "AGOSTO": {"2023": 153, "2024": 128, "2025": 196}, "SETEMBRO": {"2023": 183, "2024": 203, "2025": 236}, "OUTUBRO": {"2023": 219, "2024": 232, "2025": 259}}, "UNAMA - Marabá": {"MAIO": {"2023": 19, "2024": 31, "2025": 27}, "JUNHO": {"2023": 43, "2024": 87, "2025": 58}, "JULHO": {"2023": 104, "2024": 124, "2025": 137}, "AGOSTO": {"2023": 240, "2024": 213, "2025": 268}, "SETEMBRO": {"2023": 282, "2024": 275, "2025": 319}, "OUTUBRO": {"2023": 311, "2024": 320, "2025": 345}}, "UNINASSAU - Maracanaú": {"MAIO": {"2023": 59, "2024": 34, "2025": 38}, "JUNHO": {"2023": 128, "2024": 99, "2025": 98}, "JULHO": {"2023": 227, "2024": 231, "2025": 256}, "AGOSTO": {"2023": 389, "2024": 383, "2025": 388}, "SETEMBRO": {"2023": 437, "2024": 462, "2025": 458}, "OUTUBRO": {"2023": 447, "2024": 513, "2025": 496}}, "UNINASSAU - Sobral": {"MAIO": {"2023": 6, "2024": 6, "2025": 0}, "JUNHO": {"2023": 24, "2024": 11, "2025": 7}, "JULHO": {"2023": 53, "2024": 38, "2025": 27}, "AGOSTO": {"2023": 112, "2024": 74, "2025": 56}, "SETEMBRO": {"2023": 159, "2024": 91, "2025": 75}, "OUTUBRO": {"2023": 172, "2024": 99, "2025": 81}}, "UNAMA - Porto Velho": {"MAIO": {"2023": 14, "2024": 17, "2025": 10}, "JUNHO": {"2023": 33, "2024": 52, "2025": 16}, "JULHO": {"2023": 82, "2024": 87, "2025": 51}, "AGOSTO": {"2023": 180, "2024": 152, "2025": 91}, "SETEMBRO": {"2023": 201, "2024": 184, "2025": 110}, "OUTUBRO": {"2023": 214, "2024": 192, "2025": 119}}, "UNAMA - Boa Vista": {"MAIO": {"2023": 33, "2024": 35, "2025": 21}, "JUNHO": {"2023": 77, "2024": 132, "2025": 83}, "JULHO": {"2023": 184, "2024": 230, "2025": 212}, "AGOSTO": {"2023": 322, "2024": 352, "2025": 358}, "SETEMBRO": {"2023": 381, "2024": 427, "2025": 430}, "OUTUBRO": {"2023": 521, "2024": 584, "2025": 498}}, "UNINASSAU - Mossoró": {"MAIO": {"2023": 44, "2024": 42, "2025": 82}, "JUNHO": {"2023": 81, "2024": 104, "2025": 145}, "JULHO": {"2023": 204, "2024": 178, "2025": 281}, "AGOSTO": {"2023": 335, "2024": 315, "2025": 421}, "SETEMBRO": {"2023": 371, "2024": 408, "2025": 486}, "OUTUBRO": {"2023": 374, "2024": 422, "2025": 517}}, "UNINASSAU - Boa Viagem": {"MAIO": {"2023": 74, "2024": 29, "2025": 68}, "JUNHO": {"2023": 168, "2024": 210, "2025": 140}, "JULHO": {"2023": 506, "2024": 400, "2025": 459}, "AGOSTO": {"2023": 765, "2024": 696, "2025": 730}, "SETEMBRO": {"2023": 855, "2024": 801, "2025": 834}, "OUTUBRO": {"2023": 868, "2024": 885, "2025": 867}}, "UNINASSAU - Arapiraca": {"MAIO": {"2023": 51, "2024": 51, "2025": 32}, "JUNHO": {"2023": 98, "2024": 99, "2025": 61}, "JULHO": {"2023": 236, "2024": 174, "2025": 133}, "AGOSTO": {"2023": 417, "2024": 349, "2025": 250}, "SETEMBRO": {"2023": 459, "2024": 422, "2025": 297}, "OUTUBRO": {"2023": 486, "2024": 484, "2025": 326}}, "UNAMA - Macapá": {"MAIO": {"2023": 5, "2024": 6, "2025": 10}, "JUNHO": {"2023": 22, "2024": 50, "2025": 20}, "JULHO": {"2023": 40, "2024": 88, "2025": 67}, "AGOSTO": {"2023": 74, "2024": 153, "2025": 146}, "SETEMBRO": {"2023": 95, "2024": 181, "2025": 195}, "OUTUBRO": {"2023": 111, "2024": 235, "2025": 215}}, "UNINASSAU - Palmas": {"MAIO": {"2023": 8, "2024": 15, "2025": 22}, "JUNHO": {"2023": 45, "2024": 68, "2025": 66}, "JULHO": {"2023": 120, "2024": 124, "2025": 170}, "AGOSTO": {"2023": 205, "2024": 233, "2025": 277}, "SETEMBRO": {"2023": 242, "2024": 302, "2025": 329}, "OUTUBRO": {"2023": 269, "2024": 359, "2025": 366}}, "UNAMA - BR Ananindeua": {"MAIO": {"2023": 17, "2024": 18, "2025": 24}, "JUNHO": {"2023": 58, "2024": 87, "2025": 65}, "JULHO": {"2023": 212, "2024": 251, "2025": 224}, "AGOSTO": {"2023": 550, "2024": 550, "2025": 392}, "SETEMBRO": {"2023": 684, "2024": 696, "2025": 488}, "OUTUBRO": {"2023": 709, "2024": 772, "2025": 521}}, "UNAMA - Parque Shopping": {"MAIO": {"2023": 19, "2024": 53, "2025": 27}, "JUNHO": {"2023": 44, "2024": 130, "2025": 60}, "JULHO": {"2023": 116, "2024": 232, "2025": 197}, "AGOSTO": {"2023": 292, "2024": 412, "2025": 337}, "SETEMBRO": {"2023": 361, "2024": 482, "2025": 404}, "OUTUBRO": {"2023": 376, "2024": 528, "2025": 422}}, "UNAMA - Rio Branco": {"MAIO": {"2023": 12, "2024": 14, "2025": 17}, "JUNHO": {"2023": 33, "2024": 68, "2025": 43}, "JULHO": {"2023": 77, "2024": 113, "2025": 103}, "AGOSTO": {"2023": 267, "2024": 205, "2025": 168}, "SETEMBRO": {"2023": 310, "2024": 257, "2025": 214}, "OUTUBRO": {"2023": 323, "2024": 279, "2025": 228}}, "UNINASSAU - Brasília": {"MAIO": {"2023": 36, "2024": 35, "2025": 14}, "JUNHO": {"2023": 73, "2024": 100, "2025": 37}, "JULHO": {"2023": 140, "2024": 191, "2025": 81}, "AGOSTO": {"2023": 278, "2024": 283, "2025": 143}, "SETEMBRO": {"2023": 323, "2024": 345, "2025": 170}, "OUTUBRO": {"2023": 331, "2024": 387, "2025": 179}}, "UNINASSAU - Caxangá": {"MAIO": {"2023": 44, "2024": 65, "2025": 30}, "JUNHO": {"2023": 123, "2024": 140, "2025": 82}, "JULHO": {"2023": 284, "2024": 276, "2025": 277}, "AGOSTO": {"2023": 461, "2024": 518, "2025": 436}, "SETEMBRO": {"2023": 513, "2024": 611, "2025": 506}, "OUTUBRO": {"2023": 516, "2024": 664, "2025": 532}}, "UNAMA - Castanhal": {"MAIO": {"2023": 21, "2024": 9, "2025": 10}, "JUNHO": {"2023": 60, "2024": 50, "2025": 36}, "JULHO": {"2023": 121, "2024": 120, "2025": 83}, "AGOSTO": {"2023": 237, "2024": 252, "2025": 163}, "SETEMBRO": {"2023": 270, "2024": 291, "2025": 190}, "OUTUBRO": {"2023": 288, "2024": 323, "2025": 196}}, "UNINASSAU - Juazeiro": {"MAIO": {"2023": 23, "2024": 54, "2025": 40}, "JUNHO": {"2023": 65, "2024": 152, "2025": 101}, "JULHO": {"2023": 173, "2024": 237, "2025": 209}, "AGOSTO": {"2023": 311, "2024": 356, "2025": 332}, "SETEMBRO": {"2023": 370, "2024": 427, "2025": 434}, "OUTUBRO": {"2023": 384, "2024": 456, "2025": 480}}, "UNINASSAU - Cacoal": {"MAIO": {"2023": 28, "2024": 32, "2025": 13}, "JUNHO": {"2023": 76, "2024": 110, "2025": 39}, "JULHO": {"2023": 149, "2024": 159, "2025": 111}, "AGOSTO": {"2023": 223, "2024": 249, "2025": 170}, "SETEMBRO": {"2023": 253, "2024": 285, "2025": 194}, "OUTUBRO": {"2023": 258, "2024": 307, "2025": 208}}, "UNINASSAU - Serra Talhada": {"MAIO": {"2023": 20, "2024": 20, "2025": 26}, "JUNHO": {"2023": 62, "2024": 58, "2025": 59}, "JULHO": {"2023": 135, "2024": 118, "2025": 122}, "AGOSTO": {"2023": 230, "2024": 197, "2025": 193}, "SETEMBRO": {"2023": 269, "2024": 226, "2025": 227}, "OUTUBRO": {"2023": 291, "2024": 252, "2025": 242}}, "UNESC - Rondônia": {"MAIO": {"2023": 0, "2024": 0, "2025": 0}, "JUNHO": {"2023": 0, "2024": 0, "2025": 0}, "JULHO": {"2023": 0, "2024": 0, "2025": 0}, "AGOSTO": {"2023": 0, "2024": 0, "2025": 0}, "SETEMBRO": {"2023": 0, "2024": 0, "2025": 0}, "OUTUBRO": {"2023": 0, "2024": 0, "2025": 0}}, "UNINASSAU - Barreiras": {"MAIO": {"2023": 29, "2024": 30, "2025": 30}, "JUNHO": {"2023": 61, "2024": 107, "2025": 63}, "JULHO": {"2023": 163, "2024": 179, "2025": 145}, "AGOSTO": {"2023": 252, "2024": 268, "2025": 238}, "SETEMBRO": {"2023": 282, "2024": 311, "2025": 314}, "OUTUBRO": {"2023": 296, "2024": 367, "2025": 390}}, "Faculdade Unesc/Unama": {"MAIO": {"2023": 10, "2024": 11, "2025": 4}, "JUNHO": {"2023": 14, "2024": 18, "2025": 6}, "JULHO": {"2023": 21, "2024": 35, "2025": 8}, "AGOSTO": {"2023": 50, "2024": 55, "2025": 25}, "SETEMBRO": {"2023": 62, "2024": 64, "2025": 36}, "OUTUBRO": {"2023": 66, "2024": 68, "2025": 38}}, "UNINASSAU - Vilhena": {"MAIO": {"2023": 14, "2024": 19, "2025": 8}, "JUNHO": {"2023": 41, "2024": 54, "2025": 31}, "JULHO": {"2023": 93, "2024": 98, "2025": 88}, "AGOSTO": {"2023": 163, "2024": 149, "2025": 158}, "SETEMBRO": {"2023": 207, "2024": 178, "2025": 187}, "OUTUBRO": {"2023": 211, "2024": 185, "2025": 192}}, "UNINASSAU - Imperatriz": {"MAIO": {"2023": 0, "2024": 0, "2025": 1}, "JUNHO": {"2023": 1, "2024": 7, "2025": 4}, "JULHO": {"2023": 7, "2024": 13, "2025": 14}, "AGOSTO": {"2023": 18, "2024": 26, "2025": 31}, "SETEMBRO": {"2023": 29, "2024": 36, "2025": 41}, "OUTUBRO": {"2023": 44, "2024": 42, "2025": 42}}, "UNIFAEL - Curitiba": {"MAIO": {"2023": 6, "2024": 3, "2025": 14}, "JUNHO": {"2023": 15, "2024": 16, "2025": 35}, "JULHO": {"2023": 25, "2024": 52, "2025": 56}, "AGOSTO": {"2023": 47, "2024": 104, "2025": 107}, "SETEMBRO": {"2023": 65, "2024": 119, "2025": 117}, "OUTUBRO": {"2023": 72, "2024": 120, "2025": 126}}, "UNIFAEL - Porto Alegre": {"MAIO": {"2023": 0, "2024": 2, "2025": 9}, "JUNHO": {"2023": 1, "2024": 18, "2025": 16}, "JULHO": {"2023": 1, "2024": 34, "2025": 40}, "AGOSTO": {"2023": 10, "2024": 67, "2025": 56}, "SETEMBRO": {"2023": 17, "2024": 82, "2025": 61}, "OUTUBRO": {"2023": 24, "2024": 99, "2025": 63}}, "UNI7": {"MAIO": {"2023": 53, "2024": 30, "2025": 24}, "JUNHO": {"2023": 101, "2024": 91, "2025": 72}, "JULHO": {"2023": 181, "2024": 165, "2025": 169}, "AGOSTO": {"2023": 332, "2024": 288, "2025": 290}, "SETEMBRO": {"2023": 372, "2024": 328, "2025": 327}, "OUTUBRO": {"2023": 389, "2024": 355, "2025": 347}}, "UNINASSAU - Carpina": {"MAIO": {"2023": 0, "2024": 10, "2025": 13}, "JUNHO": {"2023": 0, "2024": 25, "2025": 35}, "JULHO": {"2023": 0, "2024": 56, "2025": 80}, "AGOSTO": {"2023": 120, "2024": 85, "2025": 131}, "SETEMBRO": {"2023": 168, "2024": 102, "2025": 156}, "OUTUBRO": {"2023": 184, "2024": 127, "2025": 169}}, "UNG - Itaquaquecetuba": {"MAIO": {"2023": 30, "2024": 27, "2025": 26}, "JUNHO": {"2023": 64, "2024": 82, "2025": 68}, "JULHO": {"2023": 166, "2024": 145, "2025": 178}, "AGOSTO": {"2023": 260, "2024": 247, "2025": 246}, "SETEMBRO": {"2023": 293, "2024": 303, "2025": 288}, "OUTUBRO": {"2023": 296, "2024": 332, "2025": 312}}, "UNG - Guarulhos": {"MAIO": {"2023": 125, "2024": 76, "2025": 105}, "JUNHO": {"2023": 246, "2024": 255, "2025": 215}, "JULHO": {"2023": 566, "2024": 551, "2025": 556}, "AGOSTO": {"2023": 886, "2024": 964, "2025": 824}, "SETEMBRO": {"2023": 979, "2024": 1125, "2025": 949}, "OUTUBRO": {"2023": 1006, "2024": 1170, "2025": 1051}}, "UNINORTE - Djalma Batista": {"MAIO": {"2023": 14, "2024": 48, "2025": 54}, "JUNHO": {"2023": 35, "2024": 161, "2025": 115}, "JULHO": {"2023": 90, "2024": 300, "2025": 258}, "AGOSTO": {"2023": 221, "2024": 556, "2025": 443}, "SETEMBRO": {"2023": 385, "2024": 677, "2025": 594}, "OUTUBRO": {"2023": 440, "2024": 723, "2025": 682}}, "UNINORTE - Cidade Nova": {"MAIO": {"2023": 15, "2024": 68, "2025": 49}, "JUNHO": {"2023": 49, "2024": 149, "2025": 102}, "JULHO": {"2023": 129, "2024": 244, "2025": 190}, "AGOSTO": {"2023": 223, "2024": 431, "2025": 286}, "SETEMBRO": {"2023": 257, "2024": 496, "2025": 339}, "OUTUBRO": {"2023": 270, "2024": 532, "2025": 397}}, "UNINORTE - Centro": {"MAIO": {"2023": 26, "2024": 72, "2025": 77}, "JUNHO": {"2023": 75, "2024": 204, "2025": 184}, "JULHO": {"2023": 308, "2024": 423, "2025": 361}, "AGOSTO": {"2023": 604, "2024": 881, "2025": 576}, "SETEMBRO": {"2023": 718, "2024": 1074, "2025": 711}, "OUTUBRO": {"2023": 749, "2024": 1144, "2025": 842}}, "UNIFAEL - Lapa": {"MAIO": {"2023": 0, "2024": 2, "2025": 0}, "JUNHO": {"2023": 0, "2024": 14, "2025": 5}, "JULHO": {"2023": 0, "2024": 39, "2025": 15}, "AGOSTO": {"2023": 0, "2024": 76, "2025": 26}, "SETEMBRO": {"2023": 0, "2024": 106, "2025": 32}, "OUTUBRO": {"2023": 0, "2024": 113, "2025": 35}}, "UNINORTE - Zona Leste": {"MAIO": {"2023": 0, "2024": 0, "2025": 6}, "JUNHO": {"2023": 0, "2024": 0, "2025": 21}, "JULHO": {"2023": 0, "2024": 0, "2025": 49}, "AGOSTO": {"2023": 0, "2024": 0, "2025": 75}, "SETEMBRO": {"2023": 0, "2024": 0, "2025": 94}, "OUTUBRO": {"2023": 0, "2024": 0, "2025": 128}}, "UNAMA - Bragança": {"MAIO": {"2023": 0, "2024": 0, "2025": 19}, "JUNHO": {"2023": 0, "2024": 0, "2025": 32}, "JULHO": {"2023": 0, "2024": 0, "2025": 76}, "AGOSTO": {"2023": 0, "2024": 0, "2025": 119}, "SETEMBRO": {"2023": 0, "2024": 0, "2025": 154}, "OUTUBRO": {"2023": 0, "2024": 0, "2025": 159}}, "UNINASSAU - Patos": {"MAIO": {"2023": 0, "2024": 0, "2025": 0}, "JUNHO": {"2023": 0, "2024": 0, "2025": 0}, "JULHO": {"2023": 0, "2024": 0, "2025": 27}, "AGOSTO": {"2023": 0, "2024": 0, "2025": 53}, "SETEMBRO": {"2023": 0, "2024": 0, "2025": 80}, "OUTUBRO": {"2023": 0, "2024": 0, "2025": 96}}, "UNIFAEL - Florianópolis": {"MAIO": {"2023": 0, "2024": 0, "2025": 0}, "JUNHO": {"2023": 0, "2024": 0, "2025": 0}, "JULHO": {"2023": 0, "2024": 0, "2025": 0}, "AGOSTO": {"2023": 0, "2024": 0, "2025": 0}, "SETEMBRO": {"2023": 0, "2024": 0, "2025": 0}, "OUTUBRO": {"2023": 0, "2024": 0, "2025": 0}}};
+const unidadesBase = [{"unidade": "UNINASSAU - Graças", "gestor": "PAULO PALMEIRA", "maio2026": 74, "atual2026": 106, "meta": 2123}, {"unidade": "UNINASSAU - João Pessoa", "gestor": "AISLANE BELO", "maio2026": 62, "atual2026": 85, "meta": 797}, {"unidade": "UNINASSAU - Campina Grande", "gestor": "PAULO PALMEIRA", "maio2026": 93, "atual2026": 108, "meta": 772}, {"unidade": "UNINASSAU - Salvador", "gestor": "AISLANE BELO", "maio2026": 28, "atual2026": 36, "meta": 422}, {"unidade": "UNINASSAU - Natal", "gestor": "MARCUS PONTES", "maio2026": 83, "atual2026": 113, "meta": 1099}, {"unidade": "UNINASSAU - Maceió", "gestor": "AISLANE BELO", "maio2026": 129, "atual2026": 191, "meta": 1137}, {"unidade": "UNINASSAU - Aracajú", "gestor": "PAULO PALMEIRA", "maio2026": 64, "atual2026": 83, "meta": 720}, {"unidade": "UNINASSAU - Fortaleza", "gestor": "MARCUS PONTES", "maio2026": 77, "atual2026": 111, "meta": 1097}, {"unidade": "UNINASSAU - Caruaru", "gestor": "AISLANE BELO", "maio2026": 75, "atual2026": 95, "meta": 975}, {"unidade": "UNINASSAU - São Luís", "gestor": "PAULO PALMEIRA", "maio2026": 23, "atual2026": 31, "meta": 401}, {"unidade": "UNINASSAU - Paulista", "gestor": "PAULO PALMEIRA", "maio2026": 58, "atual2026": 76, "meta": 618}, {"unidade": "UNINASSAU - Redenção (Aliança)", "gestor": "MARCUS PONTES", "maio2026": 25, "atual2026": 38, "meta": 492}, {"unidade": "UNINASSAU - Teresina", "gestor": "MARCUS PONTES", "maio2026": 48, "atual2026": 63, "meta": 507}, {"unidade": "UNINASSAU - Parnaíba", "gestor": "MARCUS PONTES", "maio2026": 35, "atual2026": 46, "meta": 447}, {"unidade": "UNINASSAU - Vitória da Conquista", "gestor": "AISLANE BELO", "maio2026": 28, "atual2026": 35, "meta": 331}, {"unidade": "UNINASSAU - Olinda", "gestor": "PAULO PALMEIRA", "maio2026": 46, "atual2026": 62, "meta": 532}, {"unidade": "UNINASSAU - Petrolina", "gestor": "AISLANE BELO", "maio2026": 89, "atual2026": 118, "meta": 906}, {"unidade": "UNINASSAU - Cabo", "gestor": "PAULO PALMEIRA", "maio2026": 20, "atual2026": 35, "meta": 357}, {"unidade": "UNAMA - Belém", "gestor": "EDEN FERREIRA", "maio2026": 65, "atual2026": 91, "meta": 1558}, {"unidade": "UNAMA - Santarém", "gestor": "EDEN FERREIRA", "maio2026": 39, "atual2026": 48, "meta": 586}, {"unidade": "UNINASSAU - Parangaba", "gestor": "MARCUS PONTES", "maio2026": 70, "atual2026": 92, "meta": 895}, {"unidade": "UNINASSAU - Rio de Janeiro", "gestor": "AISLANE BELO", "maio2026": 27, "atual2026": 31, "meta": 298}, {"unidade": "UNINASSAU - Garanhuns", "gestor": "AISLANE BELO", "maio2026": 20, "atual2026": 22, "meta": 301}, {"unidade": "UNAMA - Marabá", "gestor": "EDEN FERREIRA", "maio2026": 15, "atual2026": 23, "meta": 416}, {"unidade": "UNINASSAU - Maracanaú", "gestor": "MARCUS PONTES", "maio2026": 58, "atual2026": 75, "meta": 575}, {"unidade": "UNINASSAU - Sobral", "gestor": "AISLANE BELO", "maio2026": 14, "atual2026": 18, "meta": 217}, {"unidade": "UNAMA - Porto Velho", "gestor": "EDEN FERREIRA", "maio2026": 40, "atual2026": 61, "meta": 235}, {"unidade": "UNAMA - Boa Vista", "gestor": "EDEN FERREIRA", "maio2026": 50, "atual2026": 65, "meta": 645}, {"unidade": "UNINASSAU - Mossoró", "gestor": "MARCUS PONTES", "maio2026": 68, "atual2026": 90, "meta": 556}, {"unidade": "UNINASSAU - Boa Viagem", "gestor": "PAULO PALMEIRA", "maio2026": 33, "atual2026": 53, "meta": 986}, {"unidade": "UNINASSAU - Arapiraca", "gestor": "AISLANE BELO", "maio2026": 11, "atual2026": 18, "meta": 355}, {"unidade": "UNAMA - Macapá", "gestor": "EDEN FERREIRA", "maio2026": 20, "atual2026": 23, "meta": 248}, {"unidade": "UNINASSAU - Palmas", "gestor": "PAULO PALMEIRA", "maio2026": 29, "atual2026": 38, "meta": 455}, {"unidade": "UNAMA - BR Ananindeua", "gestor": "EDEN FERREIRA", "maio2026": 40, "atual2026": 51, "meta": 630}, {"unidade": "UNAMA - Parque Shopping", "gestor": "EDEN FERREIRA", "maio2026": 24, "atual2026": 30, "meta": 561}, {"unidade": "UNAMA - Rio Branco", "gestor": "EDEN FERREIRA", "maio2026": 46, "atual2026": 64, "meta": 247}, {"unidade": "UNINASSAU - Brasília", "gestor": "PAULO PALMEIRA", "maio2026": 34, "atual2026": 47, "meta": 309}, {"unidade": "UNINASSAU - Caxangá", "gestor": "PAULO PALMEIRA", "maio2026": 49, "atual2026": 68, "meta": 619}, {"unidade": "UNAMA - Castanhal", "gestor": "EDEN FERREIRA", "maio2026": 8, "atual2026": 10, "meta": 307}, {"unidade": "UNINASSAU - Juazeiro", "gestor": "MARCUS PONTES", "maio2026": 50, "atual2026": 64, "meta": 536}, {"unidade": "UNINASSAU - Cacoal", "gestor": "EDEN FERREIRA", "maio2026": 23, "atual2026": 35, "meta": 383}, {"unidade": "UNINASSAU - Serra Talhada", "gestor": "AISLANE BELO", "maio2026": 27, "atual2026": 34, "meta": 390}, {"unidade": "UNINASSAU - Barreiras", "gestor": "AISLANE BELO", "maio2026": 22, "atual2026": 29, "meta": 446}, {"unidade": "Faculdade Unesc/Unama", "gestor": "EDEN FERREIRA", "maio2026": 0, "atual2026": 0, "meta": 0}, {"unidade": "UNINASSAU - Vilhena", "gestor": "EDEN FERREIRA", "maio2026": 18, "atual2026": 21, "meta": 249}, {"unidade": "UNINASSAU - Imperatriz", "gestor": "PAULO PALMEIRA", "maio2026": 3, "atual2026": 3, "meta": 51}, {"unidade": "UNIFAEL - Curitiba", "gestor": "AISLANE BELO", "maio2026": 10, "atual2026": 12, "meta": 174}, {"unidade": "UNIFAEL - Porto Alegre", "gestor": "AISLANE BELO", "maio2026": 23, "atual2026": 27, "meta": 99}, {"unidade": "UNI7", "gestor": "OPERAÇÕES", "maio2026": 43, "atual2026": 57, "meta": 451}, {"unidade": "UNINASSAU - Carpina", "gestor": "PAULO PALMEIRA", "maio2026": 38, "atual2026": 43, "meta": 223}, {"unidade": "UNG - Itaquaquecetuba", "gestor": "OPERAÇÕES", "maio2026": 40, "atual2026": 52, "meta": 393}, {"unidade": "UNG - Guarulhos", "gestor": "OPERAÇÕES", "maio2026": 95, "atual2026": 136, "meta": 1086}, {"unidade": "UNINORTE - Djalma Batista", "gestor": "EDEN FERREIRA", "maio2026": 47, "atual2026": 68, "meta": 890}, {"unidade": "UNINORTE - Cidade Nova", "gestor": "EDEN FERREIRA", "maio2026": 43, "atual2026": 60, "meta": 465}, {"unidade": "UNINORTE - Centro", "gestor": "EDEN FERREIRA", "maio2026": 63, "atual2026": 94, "meta": 1250}, {"unidade": "UNIFAEL - Lapa", "gestor": "AISLANE BELO", "maio2026": 6, "atual2026": 9, "meta": 146}, {"unidade": "UNINORTE - Zona Leste", "gestor": "EDEN FERREIRA", "maio2026": 25, "atual2026": 29, "meta": 174}, {"unidade": "UNAMA - Bragança", "gestor": "EDEN FERREIRA", "maio2026": 7, "atual2026": 16, "meta": 252}, {"unidade": "UNINASSAU - Patos", "gestor": "PAULO PALMEIRA", "maio2026": 15, "atual2026": 20, "meta": 180}, {"unidade": "UNIFAEL - Florianópolis", "gestor": "AISLANE BELO", "maio2026": 9, "atual2026": 16, "meta": 111}];
+
+const junhoAtual2026 = {
+  "UNINASSAU - Graças":157, "UNINASSAU - João Pessoa":116, "UNINASSAU - Campina Grande":134,
+  "UNINASSAU - Salvador":46, "UNINASSAU - Natal":153, "UNINASSAU - Maceió":238,
+  "UNINASSAU - Aracajú":104, "UNINASSAU - Fortaleza":166, "UNAMA - Gentil":0,
+  "UNINASSAU - Caruaru":122, "UNINASSAU - São Luís":47, "UNINASSAU - Paulista":103,
+  "UNINASSAU - Redenção (Aliança)":43, "UNINASSAU - Teresina":83, "UNINASSAU - Parnaíba":56,
+  "UNINASSAU - Vitória da Conquista":50, "UNINASSAU - Olinda":81, "UNINASSAU - Petrolina":146,
+  "UNINASSAU - Cabo":47, "UNAMA - Belém":126, "UNAMA - Santarém":62,
+  "UNG":0, "UNINASSAU - Parangaba":121, "UNINASSAU - Rio de Janeiro":38,
+  "UNINASSAU - Garanhuns":34, "UNAMA - Marabá":33, "UNINASSAU - Maracanaú":94,
+  "UNINASSAU - Sobral":24, "UNAMA - Porto Velho":77, "UNAMA - Boa Vista":87,
+  "UNINASSAU - Mossoró":118, "UNINASSAU - Boa Viagem":75, "UNINASSAU - Arapiraca":37,
+  "UNAMA - Macapá":29, "UNINASSAU - Palmas":51, "UNAMA - BR Ananindeua":67,
+  "UNAMA - Parque Shopping":40, "UNAMA - Rio Branco":83, "UNINASSAU - Brasília":74,
+  "UNINORTE":0, "UNINASSAU - Caxangá":95, "UNAMA - Castanhal":14,
+  "UNINASSAU - Juazeiro":85, "UNINASSAU - Cacoal":47, "UNINASSAU - Serra Talhada":44,
+  "UNESC - Rondônia":0, "UNINASSAU - Barreiras":35, "Faculdade Unesc/Unama":0,
+  "UNINASSAU - Vilhena":30, "UNINASSAU - Imperatriz":4, "UNIFAEL - Curitiba":18,
+  "UNIFAEL - Porto Alegre":29, "UNI7":70, "UNINASSAU - Carpina":58,
+  "UNG - Itaquaquecetuba":73, "UNG - Guarulhos":194, "UNINORTE - Djalma Batista":94,
+  "UNINORTE - Cidade Nova":84, "UNINORTE - Centro":127, "UNIFAEL - Lapa":11,
+  "UNINORTE - Zona Leste":34, "UNAMA - Bragança":25, "UNINASSAU - Patos":24,
+  "UNIFAEL - Florianópolis":22
+};
+function aplicarJunhoAtual(base){
+  return base.map(r => ({...r, junho2026: Number(junhoAtual2026[r.unidade] ?? r.atual2026 ?? 0), atual2026: Number(junhoAtual2026[r.unidade] ?? r.atual2026 ?? 0)}));
+}
+
+const MESES = ['MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO'];
+const MESES_CURTOS = ['MAIO','JUN','JUL','AGO','SET','OUT'];
+const gestoresList = ['OPERAÇÕES','PAULO PALMEIRA','EDEN FERREIRA','AISLANE BELO','MARCUS PONTES'];
+const META_GERAL_OFICIAL = 32681;
+let data = aplicarJunhoAtual(JSON.parse(JSON.stringify(unidadesBase)));
+let selectedUnit = data[0]?.unidade || '';
+let selectedGestor = 'OPERAÇÕES';
+let sortMode = 'projDesc';
+const fmt = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 });
+const pct = v => isFinite(v) ? (v*100).toFixed(1).replace('.',',')+'%' : '0,0%';
+function median(arr){const a=arr.filter(Number.isFinite).sort((x,y)=>x-y); if(!a.length)return 0; const m=Math.floor(a.length/2); return a.length%2?a[m]:(a[m-1]+a[m])/2;}
+function mean(arr){const a=arr.filter(Number.isFinite); return a.length?a.reduce((x,y)=>x+y,0)/a.length:0;}
+function percentile(arr,p){
+  const a=arr.filter(Number.isFinite).sort((x,y)=>x-y);
+  if(!a.length) return 0;
+  if(a.length===1) return a[0];
+  const idx=(a.length-1)*p;
+  const lo=Math.floor(idx), hi=Math.ceil(idx);
+  if(lo===hi) return a[lo];
+  return a[lo] + (a[hi]-a[lo])*(idx-lo);
+}
+function cleanNum(v){return Number(v)||0;}
+function globalFactors(month){
+  if(month==='MAIO') return {cons:1, exp:1, opt:1, avg:1};
+  if(month==='JUNHO') return {cons:1, exp:1, opt:1, avg:1};
+  const vals=[];
+  Object.values(HISTORICO).forEach(h=>{
+    ['2023','2024','2025'].forEach(y=>{
+      const jun=h?.JUNHO?.[y]||0;
+      const m=h?.[month]?.[y]||0;
+      if(jun>0 && m>0) vals.push(m/jun);
+    });
+  });
+  return {
+    cons: percentile(vals,0.25),
+    exp: percentile(vals,0.50),
+    opt: percentile(vals,0.75),
+    avg: mean(vals)
+  };
+}
+const GLOBAL_FACTORS = Object.fromEntries(MESES.map(m=>[m,globalFactors(m)]));
+function getUnitFactors(unit, month){
+  if(month==='MAIO') return {cons:1, exp:1, opt:1, avg:1, n:0, confianca:'real'};
+  if(month==='JUNHO') return {cons:1, exp:1, opt:1, avg:1, n:0, confianca:'real'};
+
+  const h=HISTORICO[unit];
+  const vals=[];
+  if(h) ['2023','2024','2025'].forEach(y=>{
+    const jun=h.JUNHO?.[y]||0;
+    const m=h[month]?.[y]||0;
+    if(jun>0 && m>0) vals.push(m/jun);
+  });
+
+  const gf=GLOBAL_FACTORS[month];
+  const n=vals.length;
+
+  // Modelo estatístico revisado para apresentação executiva:
+  // 1) Usa o histórico da própria unidade quando existe base suficiente.
+  // 2) Faz suavização com o padrão geral para reduzir distorções de bases pequenas.
+  // 3) Conservadora = P25, Esperada = Mediana, Otimista = P75.
+  // 4) Otimista fica limitada a 15% acima da Esperada no mesmo mês.
+  // 5) Não corta a projeção pela meta; apenas sinaliza quando passa de 110%.
+  let consUnit, expUnit, optUnit, avgUnit;
+  if(!n){
+    consUnit = gf.cons;
+    expUnit  = gf.exp;
+    optUnit  = gf.opt;
+    avgUnit  = gf.avg;
+  } else {
+    consUnit = percentile(vals,0.25);
+    expUnit  = percentile(vals,0.50);
+    optUnit  = percentile(vals,0.75);
+    avgUnit  = mean(vals);
+  }
+
+  // Peso da unidade conforme quantidade de anos válidos.
+  // 3 anos = forte; 2 anos = médio; 1 ano = fraco; 0 = usa geral.
+  const unitWeight = n >= 3 ? 0.85 : (n === 2 ? 0.65 : (n === 1 ? 0.45 : 0));
+  const globalWeight = 1 - unitWeight;
+
+  let cons = consUnit*unitWeight + gf.cons*globalWeight;
+  let exp  = expUnit*unitWeight  + gf.exp*globalWeight;
+  let opt  = optUnit*unitWeight  + gf.opt*globalWeight;
+
+  // Ordenação lógica dos cenários e controle anti-outlier.
+  cons = Math.min(cons, exp);
+  cons = Math.max(cons, exp*0.75);
+  opt  = Math.max(opt, exp);
+  opt  = Math.min(opt, exp*1.15);
+
+  return {cons, exp, opt, avg:avgUnit, n, confianca: n>=3?'alta':(n===2?'media':(n===1?'baixa':'global'))};
+}
+function teto110(row){
+  const meta = Number(row.meta) || 0;
+  return meta > 0 ? meta * 1.10 : 0;
+}
+function scenarioProjection(row, scenario='exp'){
+  const may=cleanNum(row.maio2026);
+  const jun=cleanNum(row.junho2026 ?? row.atual2026);
+  const values=[];
+  for(const m of MESES){
+    let base;
+    if(m==='MAIO') base=may;
+    else if(m==='JUNHO') base=jun;
+    else {
+      const f=getUnitFactors(row.unidade,m)[scenario];
+      base=jun*f;
+    }
+    // Maio e Junho são dados reais. Julho-Outubro são projeções e não são cortadas pelo teto.
+    // Apenas garantimos que a curva acumulada não fique abaixo do Junho real.
+    if(m!=='MAIO') base=Math.max(base, jun);
+    values.push(Math.round(base));
+  }
+  // Garantir acumulado não decrescente.
+  for(let i=1;i<values.length;i++) values[i]=Math.max(values[i],values[i-1]);
+  return values;
+}
+function projEsperada(row){return scenarioProjection(row,'exp');}
+function finalScenario(row,scenario){const p=scenarioProjection(row,scenario);return p[p.length-1];}
+function acimaDoTeto(row){
+  const teto = teto110(row);
+  if(!teto) return false;
+  return finalScenario(row,'cons') > teto || finalScenario(row,'exp') > teto || finalScenario(row,'opt') > teto;
+}
+function obsTeto(row){
+  if(!acimaDoTeto(row)) return '';
+  return '<span class="badge-cap">Acima 110%</span>';
+}
+function getCurrentPct(row){return row.meta?row.atual2026/row.meta:0;}
+function getProjPct(row){return row.meta?finalScenario(row,'exp')/row.meta:0;}
+function statusRow(row){const p=getProjPct(row); if(p>=1) return '✅ Dentro/Acima'; if(p>=0.85) return '🟡 Atenção'; return '🔴 Crítico';}
+function filteredRows(){
+  const q=document.getElementById('search').value.toLowerCase(); const g=document.getElementById('managerFilter').value; const u=document.getElementById('unitFilter').value;
+  return data.filter(r=>(!q||r.unidade.toLowerCase().includes(q))&&(g==='TODOS'||r.gestor===g)&&(u==='TODAS'||r.unidade===u));
+}
+function calcularTotaisGerais(useRows=null){
+  // Correção da Meta Geral: os cards superiores representam o consolidado geral 26.2.
+  // Portanto, não devem mudar quando a tabela é filtrada por gestor ou unidade.
+  // A meta oficial geral é validada pela soma das 60 unidades: 32.681.
+  const rows = data;
+  const totalMaio = rows.reduce((a,r)=>a+r.maio2026,0);
+  const totalAtual = rows.reduce((a,r)=>a+(r.junho2026 ?? r.atual2026 ?? 0),0);
+  const totalMeta = META_GERAL_OFICIAL;
+  const totalCons = rows.reduce((a,r)=>a+finalScenario(r,'cons'),0);
+  const totalExp = rows.reduce((a,r)=>a+finalScenario(r,'exp'),0);
+  const totalOpt = rows.reduce((a,r)=>a+finalScenario(r,'opt'),0);
+  document.getElementById('k2026maio').textContent=fmt.format(totalMaio); document.getElementById('k2026atual').textContent=fmt.format(totalAtual); document.getElementById('kmeta').textContent=fmt.format(totalMeta);
+  document.getElementById('kcons').textContent=fmt.format(totalCons); document.getElementById('kproj').textContent=fmt.format(totalExp); document.getElementById('kopt').textContent=fmt.format(totalOpt); document.getElementById('kgrowth').textContent=pct(totalMeta?totalExp/totalMeta:0);
+  const d=totalExp-totalMeta; const box=document.getElementById('projDestaque');
+  box.innerHTML=(d>=0?`✅ <strong>PROJEÇÃO ESPERADA GERAL: ${fmt.format(totalExp)}</strong> | Meta Geral: ${fmt.format(totalMeta)} | Diferença: +${fmt.format(d)} (${pct(d/totalMeta)} acima)`:`⚠️ <strong>PROJEÇÃO ESPERADA GERAL: ${fmt.format(totalExp)}</strong> | Meta Geral: ${fmt.format(totalMeta)} | Diferença: ${fmt.format(d)} (${pct(Math.abs(d)/totalMeta)} abaixo)`);
+  box.style.borderLeftColor=d>=0?'#059669':'#dc2626';
+}
+function renderTable(){
+  const tbody=document.querySelector('#tbl tbody'); tbody.innerHTML='';
+  let rows=filteredRows();
+  rows.sort((a,b)=>{ if(sortMode==='projAsc') return getProjPct(a)-getProjPct(b); if(sortMode==='currentDesc') return getCurrentPct(b)-getCurrentPct(a); return getProjPct(b)-getProjPct(a); });
+  rows.forEach(r=>{
+    const p=projEsperada(r), cons=finalScenario(r,'cons'), exp=finalScenario(r,'exp'), opt=finalScenario(r,'opt');
+    const tr=document.createElement('tr'); if(r.unidade===selectedUnit) tr.classList.add('selected');
+    const clsPct=getProjPct(r)>=1?'good-text':(getProjPct(r)>=0.85?'warn-text':'bad-text');
+    tr.innerHTML=`<td>${r.unidade}</td><td>${r.gestor}</td>
+      <td><input class="edit-num edit-maio" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" value="${Math.round(r.maio2026)}" data-unidade="${r.unidade}"></td>
+      <td><input class="edit-num edit-atual" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" value="${Math.round(r.junho2026 ?? r.atual2026)}" data-unidade="${r.unidade}"></td>
+      <td>${fmt.format(p[1])}</td><td>${fmt.format(p[2])}</td><td>${fmt.format(p[3])}</td><td>${fmt.format(p[4])}</td><td>${fmt.format(p[5])}</td>
+      <td><strong>${fmt.format(r.meta)}</strong></td><td class="${getCurrentPct(r)>=1?'good-text':'bad-text'}"><strong>${pct(getCurrentPct(r))}</strong></td>
+      <td class="scenario cons">${fmt.format(cons)}</td><td class="scenario exp">${fmt.format(exp)}</td><td class="scenario opt">${fmt.format(opt)}</td>
+      <td class="${clsPct}">${pct(getProjPct(r))}</td><td class="${clsPct}">${statusRow(r)}</td><td>${obsTeto(r)}</td>`;
+    tr.addEventListener('click',e=>{ if(e.target.tagName==='INPUT')return; selectedUnit=r.unidade; renderTable(); openUnitModal(); });
+    tbody.appendChild(tr);
+  });
+  document.querySelectorAll('.edit-maio,.edit-atual').forEach(inp=>{
+    inp.addEventListener('click',e=>e.stopPropagation());
+
+    // Permite digitar normalmente sem a tabela "pular" a cada tecla.
+    // A projeção é recalculada quando o usuário sai do campo ou aperta Enter.
+    inp.addEventListener('input',e=>{
+      e.target.value = e.target.value.replace(/[^0-9]/g,'');
+    });
+
+    const commitEdit = e => {
+      const row=data.find(x=>x.unidade===e.target.dataset.unidade);
+      if(!row)return;
+      const valor = Number(e.target.value)||0;
+      if(e.target.classList.contains('edit-maio')) {
+        row.maio2026 = valor;
+      } else {
+        row.junho2026 = valor;
+        row.atual2026 = valor;
+      }
+      refreshAll(true);
+    };
+
+    inp.addEventListener('change',commitEdit);
+    inp.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){
+        e.preventDefault();
+        e.target.blur();
+      }
+    });
+  });
+}
+
+function getGestorResumo(g){
+  const rows=data.filter(r=>r.gestor===g);
+  const maio=rows.reduce((a,r)=>a+r.maio2026,0);
+  const atual=rows.reduce((a,r)=>a+r.atual2026,0);
+  const meta=rows.reduce((a,r)=>a+r.meta,0);
+  const cons=rows.reduce((a,r)=>a+finalScenario(r,'cons'),0);
+  const exp=rows.reduce((a,r)=>a+finalScenario(r,'exp'),0);
+  const opt=rows.reduce((a,r)=>a+finalScenario(r,'opt'),0);
+  const pctAtual=meta?atual/meta:0;
+  const pctExp=meta?exp/meta:0;
+  const dif=exp-meta;
+  let status='🔴 Crítico';
+  if(pctExp>=1) status='✅ Dentro/Acima';
+  else if(pctExp>=0.85) status='🟡 Atenção';
+  return {gestor:g, maio, atual, meta, cons, exp, opt, pctAtual, pctExp, dif, status};
+}
+function renderGestorResumo(){
+  const tbody=document.getElementById('gestorResumoBody');
+  if(!tbody) return;
+  const resumos=gestoresList.map(getGestorResumo).sort((a,b)=>b.pctExp-a.pctExp);
+  tbody.innerHTML=resumos.map((r,i)=>{
+    const cls=r.pctExp>=1?'good-text':(r.pctExp>=0.85?'warn-text':'bad-text');
+    const clsAtual=r.pctAtual>=1?'good-text':'bad-text';
+    const difTxt=(r.dif>=0?'+':'')+fmt.format(r.dif);
+    return `<tr class="gestor-click-row" data-gestor="${r.gestor}" title="Clique para ver o gráfico de linha do gestor">
+      <td><span class="rank-badge">${i+1}º</span>${r.gestor}</td>
+      <td>${fmt.format(r.maio)}</td>
+      <td>${fmt.format(r.atual)}</td>
+      <td><strong>${fmt.format(r.meta)}</strong></td>
+      <td class="scenario cons">${fmt.format(r.cons)}</td>
+      <td class="scenario exp">${fmt.format(r.exp)}</td>
+      <td class="scenario opt">${fmt.format(r.opt)}</td>
+      <td class="${clsAtual}">${pct(r.pctAtual)}</td>
+      <td class="${cls}"><strong>${pct(r.pctExp)}</strong></td>
+      <td class="${r.dif>=0?'good-text':'bad-text'}">${difTxt}</td>
+      <td class="${cls}">${r.status}</td>
+    </tr>`;
+  }).join('');
+  document.querySelectorAll('.gestor-click-row').forEach(tr=>{
+    tr.style.cursor='pointer';
+    tr.addEventListener('click',()=>openGestorModal(tr.dataset.gestor));
+  });
+}
+
+function getGestorSeries(gestor){
+  const rows=data.filter(r=>r.gestor===gestor);
+  const sumSeries=(tipo)=>MESES_CURTOS.map((_,i)=>rows.reduce((acc,r)=>acc+scenarioProjection(r,tipo)[i],0));
+  return {
+    rows,
+    meta: rows.reduce((a,r)=>a+r.meta,0),
+    atual: rows.reduce((a,r)=>a+r.atual2026,0),
+    maio: rows.reduce((a,r)=>a+r.maio2026,0),
+    cons: sumSeries('cons'),
+    exp: sumSeries('exp'),
+    opt: sumSeries('opt')
+  };
+}
+
+function drawGestorLineChart(gestor){
+  const canvas=document.getElementById('chartGestorLine');
+  if(!canvas) return;
+  const container=canvas.parentElement;
+  canvas.width=Math.min(container.clientWidth-20,880);
+  canvas.height=430;
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  const s=getGestorSeries(gestor);
+  const meta=s.meta, atual=s.atual;
+  const maxVal=Math.max(...s.cons,...s.exp,...s.opt,meta,atual,1)*1.15;
+  const padL=80,padR=35,top=45,bottom=60;
+  const chartW=canvas.width-padL-padR, chartH=canvas.height-top-bottom;
+  const x=i=>padL+i*(chartW/(MESES_CURTOS.length-1));
+  const y=v=>top+chartH*(1-v/maxVal);
+
+  ctx.strokeStyle='#e5e7eb'; ctx.fillStyle='#6b7280'; ctx.font='11px Inter'; ctx.textAlign='right';
+  for(let i=0;i<=4;i++){
+    const yy=top+chartH/4*i; const val=maxVal*(1-i/4);
+    ctx.beginPath(); ctx.moveTo(padL,yy); ctx.lineTo(canvas.width-padR,yy); ctx.stroke();
+    ctx.fillText(fmt.format(val),padL-8,yy+4);
+  }
+
+  function line(vals,color,width=3,dash=[],labelOffset=-10){
+    ctx.beginPath(); ctx.strokeStyle=color; ctx.lineWidth=width; ctx.setLineDash(dash);
+    vals.forEach((v,i)=>{ if(i===0)ctx.moveTo(x(i),y(v)); else ctx.lineTo(x(i),y(v)); });
+    ctx.stroke(); ctx.setLineDash([]);
+    vals.forEach((v,i)=>{
+      const xx=x(i), yy=y(v);
+      ctx.fillStyle=color; ctx.beginPath(); ctx.arc(xx,yy,4,0,Math.PI*2); ctx.fill();
+      ctx.font='bold 10px Inter'; ctx.textAlign='center'; ctx.fillStyle=color;
+      ctx.fillText(fmt.format(v), xx, yy + labelOffset);
+    });
+  }
+
+  if(meta>0){
+    ctx.beginPath(); ctx.strokeStyle='#dc2626'; ctx.lineWidth=2; ctx.setLineDash([8,6]);
+    ctx.moveTo(padL,y(meta)); ctx.lineTo(canvas.width-padR,y(meta)); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle='#dc2626'; ctx.textAlign='left'; ctx.font='bold 11px Inter';
+    ctx.fillText('Meta '+fmt.format(meta),padL+10,y(meta)-6);
+  }
+  if(atual>0){
+    ctx.beginPath(); ctx.strokeStyle='#6d28d9'; ctx.lineWidth=2; ctx.setLineDash([4,4]);
+    ctx.moveTo(padL,y(atual)); ctx.lineTo(canvas.width-padR,y(atual)); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle='#6d28d9'; ctx.textAlign='left'; ctx.font='bold 11px Inter';
+    ctx.fillText('Atual '+fmt.format(atual),padL+10,y(atual)+14);
+  }
+
+  line(s.cons,'#ea580c',2,[3,4],16);
+  line(s.exp,'#1f4e78',3,[],-12);
+  line(s.opt,'#059669',2,[3,4],-24);
+
+  ctx.fillStyle='#374151'; ctx.font='11px Inter'; ctx.textAlign='center';
+  MESES_CURTOS.forEach((l,i)=>ctx.fillText(l,x(i),canvas.height-25));
+  ctx.fillStyle='#1f2937'; ctx.font='bold 12px Inter'; ctx.textAlign='left';
+  ctx.fillText(`Conserv.: ${fmt.format(s.cons[5])}`,padL,25);
+  ctx.fillText(`Esperada: ${fmt.format(s.exp[5])}`,padL+190,25);
+  ctx.fillText(`Otimista: ${fmt.format(s.opt[5])}`,padL+390,25);
+}
+
+function updateGestorPanel(){
+  const r=getGestorResumo(selectedGestor);
+  if(!r) return;
+  document.getElementById('gestorTitle').textContent=`Projeção mensal — ${selectedGestor}`;
+  document.getElementById('gestorSummary').innerHTML=`Unidades: ${data.filter(x=>x.gestor===selectedGestor).length} | Meta: ${fmt.format(r.meta)} | MAIO: ${fmt.format(r.maio)} | Junho: ${fmt.format(r.atual)} | % Esperada: ${pct(r.pctExp)}`;
+  setTimeout(()=>drawGestorLineChart(selectedGestor),80);
+}
+function openGestorModal(gestor){
+  selectedGestor=gestor;
+  document.getElementById('managerFilter').value=gestor;
+  renderTable();
+  updateManagerCards();
+  document.getElementById('gestorModal').classList.add('open');
+  updateGestorPanel();
+}
+function closeGestorModal(){document.getElementById('gestorModal').classList.remove('open');}
+
+function updateManagerCards(){
+  const box=document.getElementById('rankingGestores'); box.innerHTML='';
+  gestoresList.forEach(g=>{
+    const rows=data.filter(r=>r.gestor===g);
+    const meta=rows.reduce((a,r)=>a+r.meta,0);
+    const maio=rows.reduce((a,r)=>a+r.maio2026,0);
+    const atual=rows.reduce((a,r)=>a+r.atual2026,0);
+    const exp=rows.reduce((a,r)=>a+finalScenario(r,'exp'),0);
+    const percent=meta?exp/meta:0;
+    const div=document.createElement('div');
+    div.className='ranking-card '+(document.getElementById('managerFilter').value===g?'active':'');
+    div.innerHTML=`<div class="ranking-name">${g}</div><div class="ranking-pct ${percent>=1?'good':'bad'}">${pct(percent)}</div><div class="ranking-small">Esperada: ${fmt.format(exp)} | Meta: ${fmt.format(meta)}<br>MAIO: ${fmt.format(maio)} | JUNHO: ${fmt.format(atual)}<br><strong>📈 Clique para abrir o gráfico de linha</strong></div>`;
+    div.addEventListener('click',()=>openGestorModal(g));
+    box.appendChild(div);
+  });
+}
+function drawUnitChart(row){
+  const canvas=document.getElementById('chartUnit'); const container=canvas.parentElement; canvas.width=Math.min(container.clientWidth-20,880); canvas.height=430; const ctx=canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width,canvas.height);
+  const cons=scenarioProjection(row,'cons'), exp=scenarioProjection(row,'exp'), opt=scenarioProjection(row,'opt'); const meta=row.meta, atual=row.atual2026;
+  const maxVal=Math.max(...cons,...exp,...opt,meta,atual,1)*1.15; const padL=75,padR=35,top=45,bottom=60; const chartW=canvas.width-padL-padR, chartH=canvas.height-top-bottom; const x=i=>padL+i*(chartW/(MESES_CURTOS.length-1)); const y=v=>top+chartH*(1-v/maxVal);
+  ctx.strokeStyle='#e5e7eb'; ctx.fillStyle='#6b7280'; ctx.font='11px Inter'; ctx.textAlign='right'; for(let i=0;i<=4;i++){const yy=top+chartH/4*i; const val=maxVal*(1-i/4); ctx.beginPath();ctx.moveTo(padL,yy);ctx.lineTo(canvas.width-padR,yy);ctx.stroke();ctx.fillText(fmt.format(val),padL-8,yy+4);}
+  function line(vals,color,width=3,dash=[],labelOffset=-10){ctx.beginPath();ctx.strokeStyle=color;ctx.lineWidth=width;ctx.setLineDash(dash); vals.forEach((v,i)=>{if(i===0)ctx.moveTo(x(i),y(v));else ctx.lineTo(x(i),y(v));});ctx.stroke();ctx.setLineDash([]); vals.forEach((v,i)=>{const xx=x(i),yy=y(v);ctx.fillStyle=color;ctx.beginPath();ctx.arc(xx,yy,4,0,Math.PI*2);ctx.fill();ctx.font='bold 10px Inter';ctx.textAlign='center';ctx.fillStyle=color;ctx.fillText(fmt.format(v),xx,yy+labelOffset);})}
+  if(meta>0){ctx.beginPath();ctx.strokeStyle='#dc2626';ctx.lineWidth=2;ctx.setLineDash([8,6]);ctx.moveTo(padL,y(meta));ctx.lineTo(canvas.width-padR,y(meta));ctx.stroke();ctx.setLineDash([]);ctx.fillStyle='#dc2626';ctx.textAlign='left';ctx.font='bold 11px Inter';ctx.fillText('Meta '+fmt.format(meta),padL+10,y(meta)-6);}
+  if(atual>0){ctx.beginPath();ctx.strokeStyle='#6d28d9';ctx.lineWidth=2;ctx.setLineDash([4,4]);ctx.moveTo(padL,y(atual));ctx.lineTo(canvas.width-padR,y(atual));ctx.stroke();ctx.setLineDash([]);ctx.fillStyle='#6d28d9';ctx.textAlign='left';ctx.font='bold 11px Inter';ctx.fillText('Atual '+fmt.format(atual),padL+10,y(atual)+14);}
+  line(cons,'#ea580c',2,[3,4],16); line(exp,'#1f4e78',3,[],-12); line(opt,'#059669',2,[3,4],-24);
+  ctx.fillStyle='#374151'; ctx.font='11px Inter'; ctx.textAlign='center'; MESES_CURTOS.forEach((l,i)=>ctx.fillText(l,x(i),canvas.height-25));
+  ctx.fillStyle='#1f2937'; ctx.font='bold 12px Inter'; ctx.textAlign='left'; ctx.fillText(`Conserv.: ${fmt.format(cons[5])}`,padL,25); ctx.fillText(`Esperada: ${fmt.format(exp[5])}`,padL+180,25); ctx.fillText(`Otimista: ${fmt.format(opt[5])}`,padL+370,25);
+}
+function updateUnitPanel(){ const row=data.find(r=>r.unidade===selectedUnit)||data[0]; if(!row)return; document.getElementById('unitTitle').textContent=`Projeção mensal — ${row.unidade}`; document.getElementById('unitSummary').innerHTML=`Gestor: ${row.gestor} | Meta: ${fmt.format(row.meta)} | MAIO: ${fmt.format(row.maio2026)} | Junho: ${fmt.format(row.junho2026 ?? row.atual2026)} | % Esperada: ${pct(getProjPct(row))}`; setTimeout(()=>drawUnitChart(row),80); }
+function openUnitModal(){document.getElementById('unitModal').classList.add('open'); updateUnitPanel();}
+function closeUnitModal(){document.getElementById('unitModal').classList.remove('open');}
+function initFilters(){ const uf=document.getElementById('unitFilter'); uf.innerHTML='<option value="TODAS">Todas</option>'; [...data].sort((a,b)=>a.unidade.localeCompare(b.unidade)).forEach(r=>{const o=document.createElement('option');o.value=r.unidade;o.textContent=r.unidade;uf.appendChild(o);}); ['search','managerFilter','unitFilter'].forEach(id=>document.getElementById(id).addEventListener(id==='search'?'input':'change',()=>refreshAll())); }
+function refreshAll(render=true){ if(render) renderTable(); else renderTable(); updateManagerCards(); renderGestorResumo(); calcularTotaisGerais(); updateFatoresDisplay(); }
+function setSortMode(mode){sortMode=mode; refreshAll();}
+function resetValues(){data=aplicarJunhoAtual(JSON.parse(JSON.stringify(unidadesBase))); selectedUnit=data[0]?.unidade||''; document.getElementById('managerFilter').value='TODOS'; document.getElementById('unitFilter').value='TODAS'; document.getElementById('search').value=''; refreshAll();}
+function updateFatoresDisplay(){ const gf=GLOBAL_FACTORS.OUTUBRO; document.getElementById('fatoresDisplay').innerHTML=`📊 <strong>Fator global JUNHO → OUTUBRO:</strong> Conservador ${gf.cons.toFixed(2)}x | Esperado ${gf.exp.toFixed(2)}x | Otimista robusto ${gf.opt.toFixed(2)}x. Maio e Junho/2026 são dados reais; Julho a Outubro usam histórico por unidade com percentis 25/50/75 e controle contra outliers.`; }
+initFilters(); refreshAll();
+window.addEventListener('resize',()=>{ const m=document.getElementById('unitModal'); if(m&&m.classList.contains('open')) updateUnitPanel(); const gm=document.getElementById('gestorModal'); if(gm&&gm.classList.contains('open')) updateGestorPanel();});
+</script>
+</body>
+</html>
